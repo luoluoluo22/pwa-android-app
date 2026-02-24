@@ -47,6 +47,24 @@
                 </div>
             </section>
 
+            <section class="transfer-area">
+                <div class="glass-card messenger-card">
+                    <div class="chat-header">
+                        <span>📤 文件传输助手</span>
+                        <div class="status-dot"></div>
+                    </div>
+                    <div class="file-preview-list" id="fileList">
+                        <div class="empty-hint">等待接收或选择文件...</div>
+                    </div>
+                    <div class="input-actions">
+                        <input type="file" id="fileInput" hidden multiple>
+                        <button class="icon-btn" onclick="document.getElementById('fileInput').click()">📎</button>
+                        <div class="mock-input">点击左侧附件选择文件</div>
+                        <button class="send-btn" id="sendBtn" disabled>发送</button>
+                    </div>
+                </div>
+            </section>
+
             <section class="features">
                 <div class="glass-card feature-item">
                     <div class="icon">🚀</div>

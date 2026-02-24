@@ -30,11 +30,13 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    max-width: 500px; /* Mobile focused */
+    max-width: 500px;
+    /* Mobile focused */
     margin: 0 auto;
     width: 100%;
     position: relative;
-    padding-bottom: 80px; /* Tab bar height */
+    padding-bottom: 80px;
+    /* Tab bar height */
 }
 
 /* Header */
@@ -100,7 +102,7 @@ nav {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%);
 }
 
 h1 {
@@ -198,10 +200,143 @@ p {
     font-size: 1.2rem;
 }
 
+/* Transfer Area */
+.transfer-area {
+    padding: 0 20px 20px 20px;
+}
+
+.messenger-card {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+}
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 10px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background: #10b981;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #10b981;
+}
+
+.file-preview-list {
+    min-height: 120px;
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.empty-hint {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    text-align: center;
+    margin-top: 40px;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.file-info {
+    flex: 1;
+    font-size: 0.8rem;
+    overflow: hidden;
+}
+
+.file-name {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-size {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
+
+.input-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 8px;
+    border-radius: 16px;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 5px;
+}
+
+.mock-input {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.send-btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    opacity: 0.5;
+    transition: all 0.3s;
+}
+
+.send-btn:not(:disabled) {
+    opacity: 1;
+    cursor: pointer;
+}
+
 /* Animations */
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* iPhone Notch Support */

@@ -1,156 +1,157 @@
-let deferredPrompt;
-const installBtn = document.getElementById('installBtn');
-
-window.addEventListener('beforeinstallprompt', (e) => {
-    // 阻止 Chrome 67 及更早版本自动显示提示
-    e.preventDefault();
-    // 存储事件以备后用
-    deferredPrompt = e;
-    // 更新 UI 以通知用户可以安装
-    installBtn.style.display = 'block';
-});
-
-installBtn.addEventListener('click', async () => {
-    if (deferredPrompt) {
-        // 显示安装提示
-        deferredPrompt.prompt();
-        // 等待用户响应
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log(`User response to the install prompt: ${outcome}`);
-        // 事件已使用
-        deferredPrompt = null;
-        installBtn.style.display = 'none';
-    } else {
-        alert('请使用移动浏览器（如 Chrome）的菜单中的“添加到主屏幕”功能进行安装。');
-    }
-});
-
-window.addEventListener('appinstalled', (evt) => {
-    console.log('应用已成功安装');
-    installBtn.style.display = 'none';
-});
-
-// 全局配置：请确保此 IP 与您的电脑局域网 IP 一致
+// 极简传书 Pro - 核心核心引擎
 const PC_SERVER_URL = 'http://192.168.1.5:3001';
 
-// 文件传输逻辑
+// DOM 元素
 const fileInput = document.getElementById('fileInput');
 const fileList = document.getElementById('fileList');
+const historyList = document.getElementById('historyList');
 const sendBtn = document.getElementById('sendBtn');
 const statusDot = document.querySelector('.status-dot');
+const connectionText = document.getElementById('connection-text');
+const dropZone = document.getElementById('dropZone');
+const clearHistoryBtn = document.getElementById('clearHistory');
 
-// 手机端定时检查电脑端是否有文件传过来 (实现双向)
-async function checkForIncomingFiles() {
+// 1. 初始化传输历史
+let transferHistory = JSON.parse(localStorage.getItem('transfer_history') || '[]');
+
+function saveHistory(item) {
+    transferHistory.unshift({
+        ...item,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
+    // 仅保留最近 20 条
+    if (transferHistory.length > 20) transferHistory.pop();
+    localStorage.setItem('transfer_history', JSON.stringify(transferHistory));
+    renderHistory();
+}
+
+function renderHistory() {
+    historyList.innerHTML = transferHistory.map(item => `
+        <div class="history-item">
+            <div class="item-info">
+                <span class="item-icon">${item.type === 'image' ? '🖼️' : '📄'}</span>
+                <div>
+                    <span class="item-name">${item.name}</span>
+                    <span class="item-time">${item.time}</span>
+                </div>
+            </div>
+            <span class="item-status">${item.status}</span>
+        </div>
+    `).join('');
+}
+
+// 2. 状态监听：轮询电脑端并检查活跃
+async function updateStatus() {
     try {
-        const response = await fetch(`${PC_SERVER_URL}/poll`);
-        if (response.ok) {
-            const data = await response.json();
+        const res = await fetch(`${PC_SERVER_URL}/poll`, { mode: 'cors' });
+        if (res.ok) {
+            statusDot.style.background = '#10b981';
+            statusDot.style.boxShadow = '0 0 10px #10b981';
+            connectionText.textContent = '电脑端已就绪';
+
+            const data = await res.json();
             if (data.hasFile) {
-                alert(`收到来自电脑的文件: ${data.fileName}`);
-                // 触发自动下载
+                // 收到电脑端传来的文件
                 const link = document.createElement('a');
                 link.href = data.fileData;
                 link.download = data.fileName;
                 link.click();
+                saveHistory({ name: data.fileName, type: 'download', status: '已接收 ↓' });
             }
         }
-        statusDot.style.background = '#10b981'; // 保持在线状态
     } catch (e) {
-        statusDot.style.background = '#ef4444'; // 连接不到 Quicker
+        statusDot.style.background = '#ef4444';
+        statusDot.style.boxShadow = '0 0 10px #ef4444';
+        connectionText.textContent = '电脑助手未在线';
     }
 }
-// 每 5 秒轮询一次电脑端
-setInterval(checkForIncomingFiles, 5000);
+setInterval(updateStatus, 5000);
+
+// 3. 文件处理逻辑
+dropZone.addEventListener('click', () => fileInput.click());
 
 fileInput.addEventListener('change', (e) => {
-    const files = e.target.files;
-    if (files.length > 0) {
-        fileList.innerHTML = ''; // 清空提示
-        Array.from(files).forEach(file => {
-            const item = document.createElement('div');
-            item.className = 'file-item';
-
-            const isImage = file.type.startsWith('image/');
-            const icon = isImage ? '🖼️' : '📄';
-
-            item.innerHTML = `
-                <div class="file-icon">${icon}</div>
-                <div class="file-info">
-                    <span class="file-name">${file.name}</span>
-                    <span class="file-size">${(file.size / 1024).toFixed(1)} KB</span>
-                </div>
-            `;
-            fileList.appendChild(item);
-        });
-        sendBtn.disabled = false;
-    }
-});
-
-sendBtn.addEventListener('click', async () => {
-    const files = fileInput.files;
-    if (files.length > 0) {
-        sendBtn.textContent = '正在投送...';
-        sendBtn.disabled = true;
-
-        const file = files[0];
-
-        // 使用原生 fetch 发送数据到 C#
-        try {
-            // 对文件名进行 Base64 编码以处理中文
-            const encodedName = btoa(unescape(encodeURIComponent(file.name)));
-
-            const response = await fetch(`${PC_SERVER_URL}/upload`, {
-                method: 'POST',
-                headers: {
-                    'File-Name': encodedName,
-                    'Content-Type': 'application/octet-stream'
-                },
-                body: file
-            });
-
-            if (response.ok) {
-                sendBtn.textContent = '投送成功！';
-                setTimeout(() => {
-                    sendBtn.textContent = '发送';
-                    sendBtn.disabled = false;
-                    fileList.innerHTML = '<div class="empty-hint">等待接收或选择文件...</div>';
-                    fileInput.value = '';
-                }, 1500);
-            }
-        } catch (error) {
-            alert('投送失败，请检查电脑端 Quicker 服务是否启动');
-            sendBtn.textContent = '重试';
-            sendBtn.disabled = false;
-        }
-    }
-});
-
-// 处理 TWA 分享目标 (Share Target)
-// 当用户通过安卓分享菜单进入时，处理参数
-window.addEventListener('DOMContentLoaded', () => {
-    const parsedUrl = new URL(window.location);
-    const title = parsedUrl.searchParams.get('title');
-    const text = parsedUrl.searchParams.get('text');
-    const url = parsedUrl.searchParams.get('url');
-
-    if (title || text || url) {
+    const file = e.target.files[0];
+    if (file) {
+        const isImage = file.type.startsWith('image/');
         fileList.innerHTML = `
-            <div class="file-item">
-                <div class="file-icon">🔗</div>
-                <div class="file-info">
-                    <span class="file-name">${title || '分享的内容'}</span>
-                    <span class="file-size">${text || url || ''}</span>
-                </div>
+            <div class="active-preview">
+                <div class="upload-icon">${isImage ? '🖼️' : '📄'}</div>
+                <p>${file.name}</p>
+                <span>${(file.size / 1024).toFixed(1)} KB</span>
             </div>
         `;
         sendBtn.disabled = false;
     }
 });
 
-// 简单的微交互：标签点击
-document.querySelectorAll('.tab-item').forEach(item => {
-    item.addEventListener('click', function () {
-        document.querySelector('.tab-item.active').classList.remove('active');
-        this.classList.add('active');
-    });
+sendBtn.addEventListener('click', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    sendBtn.textContent = '正在投送...';
+    sendBtn.disabled = true;
+
+    try {
+        const encodedName = btoa(unescape(encodeURIComponent(file.name)));
+        const response = await fetch(`${PC_SERVER_URL}/upload`, {
+            method: 'POST',
+            headers: {
+                'File-Name': encodedName,
+                'Content-Type': 'application/octet-stream'
+            },
+            body: file,
+            mode: 'cors'
+        });
+
+        if (response.ok) {
+            sendBtn.textContent = '投送成功！';
+            saveHistory({ name: file.name, type: file.type.startsWith('image/') ? 'image' : 'file', status: '已发送 ↑' });
+
+            setTimeout(() => {
+                sendBtn.textContent = '投送给电脑';
+                fileList.innerHTML = `
+                    <div class="empty-hint">
+                        <div class="upload-icon">📤</div>
+                        <p>继续投送</p>
+                    </div>
+                `;
+                fileInput.value = '';
+            }, 1500);
+        }
+    } catch (error) {
+        alert('投送失败，请检查电脑端是否打开了 Quicker 助手');
+        sendBtn.textContent = '重试';
+        sendBtn.disabled = false;
+    }
+});
+
+// 4. 清空历史
+clearHistoryBtn.addEventListener('click', () => {
+    transferHistory = [];
+    localStorage.removeItem('transfer_history');
+    renderHistory();
+});
+
+// 初始化渲染
+renderHistory();
+updateStatus();
+
+// PWA 安装管理
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('installBtn').style.display = 'block';
+});
+
+document.getElementById('installBtn').addEventListener('click', async () => {
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            document.getElementById('installBtn').style.display = 'none';
+        }
+        deferredPrompt = null;
+    }
 });

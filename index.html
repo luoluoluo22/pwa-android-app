@@ -49,18 +49,48 @@
 
             <section class="transfer-area">
                 <div class="glass-card messenger-card">
-                    <div class="chat-header">
-                        <span>📤 文件传输助手</span>
-                        <div class="status-dot"></div>
-                    </div>
-                    <div class="file-preview-list" id="fileList">
-                        <div class="empty-hint">等待接收或选择文件...</div>
-                    </div>
-                    <div class="input-actions">
-                        <input type="file" id="fileInput" hidden multiple>
-                        <button class="icon-btn" onclick="document.getElementById('fileInput').click()">📎</button>
-                        <div class="mock-input">点击左侧附件选择文件</div>
-                        <button class="send-btn" id="sendBtn" disabled>发送</button>
+                    <div class="glass-container">
+                        <!-- 部署指纹：用于校对版本 -->
+                        <div class="deploy-stamp">Build: 2026-02-24 23:06 | Port: 3001 | v1.2.0</div>
+
+                        <div class="header">
+                            <div class="logo-area">
+                                <div class="logo">🚀</div>
+                                <div>
+                                    <h1>极简传书 Pro</h1>
+                                    <div class="status-indicator">
+                                        <span class="status-dot"></span>
+                                        <span id="connection-text">正在寻找电脑端...</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button id="installBtn" class="install-badge" style="display: none;">安装应用</button>
+                        </div>
+
+                        <!-- 主操作区 -->
+                        <div class="transfer-box" id="dropZone">
+                            <div id="fileList" class="file-preview">
+                                <div class="empty-hint">
+                                    <div class="upload-icon">📤</div>
+                                    <p>点击或拖拽文件到这里</p>
+                                    <span>支持任何格式，直连电脑桌面</span>
+                                </div>
+                            </div>
+
+                            <input type="file" id="fileInput" hidden>
+                            <button id="sendBtn" class="send-trigger" disabled>投送给电脑</button>
+                        </div>
+
+                        <!-- 传输历史区 -->
+                        <div class="history-section">
+                            <div class="section-title">
+                                <span>传输历史</span>
+                                <button id="clearHistory" class="text-btn">清空</button>
+                            </div>
+                            <div id="historyList" class="history-list">
+                                <!-- 历史记录将通过 JS 渲染 -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>

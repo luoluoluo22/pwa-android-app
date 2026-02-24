@@ -8,6 +8,7 @@ app.use(cors());
 
 const server = http.createServer(app);
 const io = new Server(server, {
+    maxHttpBufferSize: 1e8, // 100 MB
     cors: {
         origin: "*",
         methods: ["GET", "POST"]
@@ -37,6 +38,7 @@ io.on('connection', (socket) => {
         console.log(`收到来自 ${socket.id} 的文件传输请求:`, data.fileName);
 
         // 向所有设备广播文件
+        console.log(`正在向 ${io.engine.clientsCount - 1} 个其他设备广播文件...`);
         socket.broadcast.emit('receive_file', {
             from: devices.get(socket.id)?.name || '未知设备',
             fileName: data.fileName,

@@ -30,27 +30,37 @@ window.addEventListener('appinstalled', (evt) => {
     installBtn.style.display = 'none';
 });
 
-// 注册 Service Worker 并引入 Socket.io (通过 index.html)
-let socket;
-try {
-    // 默认尝试连接本地服务器，请在实际使用时替换为您的电脑 IP 地址
-    socket = io('http://192.168.1.5:3000');
-    socket.on('connect', () => {
-        console.log('已连接到后端服务器');
-        socket.emit('register', { type: 'Mobile', name: '我的安卓手机' });
-        document.querySelector('.status-dot').style.background = '#10b981';
-    });
-    socket.on('disconnect', () => {
-        document.querySelector('.status-dot').style.background = '#ef4444';
-    });
-} catch (e) {
-    console.log('Socket.io 未就绪或服务器未启动');
-}
+// 全局配置：请确保此 IP 与您的电脑局域网 IP 一致
+const PC_SERVER_URL = 'http://192.168.1.5:3000';
 
 // 文件传输逻辑
 const fileInput = document.getElementById('fileInput');
 const fileList = document.getElementById('fileList');
 const sendBtn = document.getElementById('sendBtn');
+const statusDot = document.querySelector('.status-dot');
+
+// 手机端定时检查电脑端是否有文件传过来 (实现双向)
+async function checkForIncomingFiles() {
+    try {
+        const response = await fetch(`${PC_SERVER_URL}/poll`);
+        if (response.ok) {
+            const data = await response.json();
+            if (data.hasFile) {
+                alert(`收到来自电脑的文件: ${data.fileName}`);
+                // 触发自动下载
+                const link = document.createElement('a');
+                link.href = data.fileData;
+                link.download = data.fileName;
+                link.click();
+            }
+        }
+        statusDot.style.background = '#10b981'; // 保持在线状态
+    } catch (e) {
+        statusDot.style.background = '#ef4444'; // 连接不到 Quicker
+    }
+}
+// 每 5 秒轮询一次电脑端
+setInterval(checkForIncomingFiles, 5000);
 
 fileInput.addEventListener('change', (e) => {
     const files = e.target.files;
@@ -76,38 +86,42 @@ fileInput.addEventListener('change', (e) => {
     }
 });
 
-sendBtn.addEventListener('click', () => {
+sendBtn.addEventListener('click', async () => {
     const files = fileInput.files;
-    if (files.length > 0 && socket) {
-        sendBtn.textContent = '传送中...';
+    if (files.length > 0) {
+        sendBtn.textContent = '正在投送...';
         sendBtn.disabled = true;
 
-        const file = files[0]; // 示例仅处理第一个文件
-        const reader = new FileReader();
+        const file = files[0];
 
-        reader.onload = function (e) {
-            const fileData = e.target.result;
+        // 使用原生 fetch 发送数据到 C#
+        try {
+            // 对文件名进行 Base64 编码以处理中文
+            const encodedName = btoa(unescape(encodeURIComponent(file.name)));
 
-            // 使用回调函数确认服务器已收到
-            socket.emit('send_file', {
-                fileName: file.name,
-                fileSize: (file.size / 1024).toFixed(1) + ' KB',
-                fileType: file.type,
-                fileData: fileData
-            }, (response) => {
-                if (response && response.status === 'ok') {
-                    sendBtn.textContent = '发送成功！';
-                    setTimeout(() => {
-                        sendBtn.textContent = '发送';
-                        sendBtn.disabled = false;
-                        fileList.innerHTML = '<div class="empty-hint">等待接收或选择文件...</div>';
-                        fileInput.value = '';
-                    }, 1500);
-                }
+            const response = await fetch(`${PC_SERVER_URL}/upload`, {
+                method: 'POST',
+                headers: {
+                    'File-Name': encodedName,
+                    'Content-Type': 'application/octet-stream'
+                },
+                body: file
             });
-        };
 
-        reader.readAsDataURL(file);
+            if (response.ok) {
+                sendBtn.textContent = '投送成功！';
+                setTimeout(() => {
+                    sendBtn.textContent = '发送';
+                    sendBtn.disabled = false;
+                    fileList.innerHTML = '<div class="empty-hint">等待接收或选择文件...</div>';
+                    fileInput.value = '';
+                }, 1500);
+            }
+        } catch (error) {
+            alert('投送失败，请检查电脑端 Quicker 服务是否启动');
+            sendBtn.textContent = '重试';
+            sendBtn.disabled = false;
+        }
     }
 });
 

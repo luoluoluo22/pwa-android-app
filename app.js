@@ -34,7 +34,7 @@ window.addEventListener('appinstalled', (evt) => {
 let socket;
 try {
     // 默认尝试连接本地服务器，请在实际使用时替换为您的电脑 IP 地址
-    socket = io('http://localhost:3000');
+    socket = io('http://192.168.1.5:3000');
     socket.on('connect', () => {
         console.log('已连接到后端服务器');
         socket.emit('register', { type: 'Mobile', name: '我的安卓手机' });

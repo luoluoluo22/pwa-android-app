@@ -30,6 +30,23 @@ window.addEventListener('appinstalled', (evt) => {
     installBtn.style.display = 'none';
 });
 
+// 注册 Service Worker 并引入 Socket.io (通过 index.html)
+let socket;
+try {
+    // 默认尝试连接本地服务器，请在实际使用时替换为您的电脑 IP 地址
+    socket = io('http://localhost:3000');
+    socket.on('connect', () => {
+        console.log('已连接到后端服务器');
+        socket.emit('register', { type: 'Mobile', name: '我的安卓手机' });
+        document.querySelector('.status-dot').style.background = '#10b981';
+    });
+    socket.on('disconnect', () => {
+        document.querySelector('.status-dot').style.background = '#ef4444';
+    });
+} catch (e) {
+    console.log('Socket.io 未就绪或服务器未启动');
+}
+
 // 文件传输逻辑
 const fileInput = document.getElementById('fileInput');
 const fileList = document.getElementById('fileList');
@@ -61,17 +78,35 @@ fileInput.addEventListener('change', (e) => {
 
 sendBtn.addEventListener('click', () => {
     const files = fileInput.files;
-    if (files.length > 0) {
+    if (files.length > 0 && socket) {
         sendBtn.textContent = '传送中...';
         sendBtn.disabled = true;
 
-        // 模拟网络延迟
-        setTimeout(() => {
-            alert(`成功传送 ${files.length} 个文件到电脑端！`);
-            sendBtn.textContent = '发送';
-            fileList.innerHTML = '<div class="empty-hint">等待接收或选择文件...</div>';
-            fileInput.value = '';
-        }, 2000);
+        const file = files[0]; // 示例仅处理第一个文件
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+            const fileData = e.target.result;
+
+            socket.emit('send_file', {
+                fileName: file.name,
+                fileSize: (file.size / 1024).toFixed(1) + ' KB',
+                fileType: file.type,
+                fileData: fileData // 发送 Base64 数据
+            });
+
+            setTimeout(() => {
+                sendBtn.textContent = '发送成功！';
+                setTimeout(() => {
+                    sendBtn.textContent = '发送';
+                    sendBtn.disabled = false;
+                    fileList.innerHTML = '<div class="empty-hint">等待接收或选择文件...</div>';
+                    fileInput.value = '';
+                }, 1500);
+            }, 500);
+        };
+
+        reader.readAsDataURL(file);
     }
 });
 

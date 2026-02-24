@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>极简传书 - 电脑接收端</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Sans+SC:wght@300;400;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #0f172a;
+            --glass: rgba(255, 255, 255, 0.05);
+            --text: #f8fafc;
+        }
+
+        body {
+            font-family: 'Outfit', 'Noto Sans SC', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            width: 800px;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 32px;
+            padding: 40px;
+        }
+
+        h1 {
+            margin-top: 0;
+        }
+
+        .device-info {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            padding: 10px 20px;
+            border-radius: 12px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .file-list {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 20px;
+            padding: 20px;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .file-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>电脑端接收助手</h1>
+        <div class="device-info" id="status">正在连接后端...</div>
+
+        <div class="file-list" id="receiveList">
+            <div style="color: #64748b; text-align: center; margin-top: 130px;">等待手机端发送文件...</div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io('http://localhost:3000');
+        const statusEl = document.getElementById('status');
+        const receiveList = document.getElementById('receiveList');
+
+        socket.on('connect', () => {
+            statusEl.textContent = '🟢 已连接到后端 (电脑端)';
+            socket.emit('register', { type: 'PC', name: '我的电脑' });
+        });
+
+        socket.on('receive_file', (data) => {
+            if (receiveList.querySelector('div[style*="text-align: center"]')) {
+                receiveList.innerHTML = '';
+            }
+
+            const card = document.createElement('div');
+            card.className = 'file-card';
+            card.innerHTML = `
+                <div>
+                    <strong style="display: block;">${data.fileName}</strong>
+                    <small style="color: #94a3b8;">来自: ${data.from} | 大小: ${data.fileSize}</small>
+                </div>
+                <a href="${data.fileData}" download="${data.fileName}" class="btn">立即下载</a>
+            `;
+            receiveList.appendChild(card);
+
+            // 自动下载图片（如果是 Base64）
+            const notice = new Notification('收到新文件', { body: `来自手机的文件: ${data.fileName}` });
+        });
+
+        // 请求通知权限
+        if (Notification.permission !== 'granted') Notification.requestPermission();
+    </script>
+</body>
+
+</html>

@@ -12,7 +12,6 @@ using Quicker.Public;
 using System.Collections.Generic;
 using System.Linq;
 using System.Collections.ObjectModel;
-using System.Windows.Data;
 
 public class PCFileServer {
     private static HttpListener _listener;
@@ -28,7 +27,9 @@ public class PCFileServer {
         public string Time { get; set; }
         public HorizontalAlignment Alignment { get; set; }
         public SolidColorBrush Background { get; set; }
-        public string Icon { get; set; }
+        public Visibility ImageVisibility { get; set; } = Visibility.Collapsed;
+        public BitmapImage ImageSource { get; set; }
+        public string FilePath { get; set; }
     }
 
     public static void Exec(IStepContext context) {
@@ -39,49 +40,52 @@ public class PCFileServer {
                 _messages.Clear();
 
                 _window = new Window {
-                    Title = "灵动传 Pro - 电脑端",
-                    Width = 500, Height = 750, Topmost = true,
+                    Title = "灵动传 Pro - 电脑工作台 (v1.1)",
+                    Width = 550, Height = 800, Topmost = true,
                     WindowStartupLocation = WindowStartupLocation.CenterScreen,
                     Background = new SolidColorBrush(Color.FromRgb(25, 25, 30)),
                     AllowDrop = true
                 };
 
                 var mainGrid = new Grid();
-                mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header/QR
-                mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Chat
-                mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Input
+                mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+                mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-                // --- 1. Header (QR) ---
+                // --- 1. Header (IP/QR/Clear) ---
                 _currentIp = GetSmartIPAddress();
-                var headerBorder = new Border { 
-                    Background = new SolidColorBrush(Color.FromArgb(50, 0, 0, 0)), 
-                    Padding = new Thickness(15) 
-                };
+                var topBorder = new Border { Background = new SolidColorBrush(Color.FromArgb(60, 0, 0, 0)), Padding = new Thickness(15), BorderThickness = new Thickness(0,0,0,1), BorderBrush = Brushes.DimGray };
                 var headerGrid = new Grid();
                 headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                var qrImg = new Image { Width = 100, Height = 100, Source = GetQRImage(_currentIp) };
-                var infoStack = new StackPanel { Margin = new Thickness(15, 0, 0, 0) };
-                infoStack.Children.Add(new TextBlock { Text = "📱 扫码连接手机", Foreground = Brushes.Gray, FontSize = 12 });
+                var qrImg = new Image { Width = 80, Height = 80, Source = GetQRImage(_currentIp), Cursor = System.Windows.Input.Cursors.Hand, ToolTip = "点击复制配对链接" };
+                qrImg.MouseDown += (s, e) => { Clipboard.SetText($"https://luoluoluo22.github.io/pwa-android-app/?ip={_currentIp}"); MessageBox.Show("配对链接已复制到剪贴板"); };
+
+                var infoStack = new StackPanel { Margin = new Thickness(15, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+                infoStack.Children.Add(new TextBlock { Text = "📱 扫描二维码连接手机", Foreground = Brushes.Gray, FontSize = 11 });
                 var ipEdit = new TextBox { 
-                    Text = _currentIp, FontSize = 16, Foreground = Brushes.Cyan, 
+                    Text = _currentIp, FontSize = 18, Foreground = Brushes.Cyan, FontWeight = FontWeights.Bold,
                     Background = Brushes.Transparent, BorderThickness = new Thickness(0,0,0,1), BorderBrush = Brushes.Cyan,
-                    Margin = new Thickness(0,5,0,5)
+                    Margin = new Thickness(0,5,0,0)
                 };
-                ipEdit.TextChanged += (s, e) => {
-                    _currentIp = ipEdit.Text;
-                    qrImg.Source = GetQRImage(_currentIp);
-                };
+                ipEdit.TextChanged += (s, e) => { _currentIp = ipEdit.Text; qrImg.Source = GetQRImage(_currentIp); };
                 infoStack.Children.Add(ipEdit);
-                infoStack.Children.Add(new TextBlock { Text = "🟢 支持文字发送 & 拖拽文件入窗", Foreground = Brushes.LimeGreen, FontSize = 11 });
+
+                var btnClear = new Button { 
+                    Content = "🗑️ 清空", Width = 60, Height = 30, Margin = new Thickness(10,0,0,0),
+                    Background = Brushes.Transparent, Foreground = Brushes.Gray, BorderThickness = new Thickness(1), BorderBrush = Brushes.Gray
+                };
+                btnClear.Click += (s, e) => { if(MessageBox.Show("确定要清空所有消息吗？", "提示", MessageBoxButton.YesNo) == MessageBoxResult.Yes) _messages.Clear(); };
 
                 Grid.SetColumn(qrImg, 0); headerGrid.Children.Add(qrImg);
                 Grid.SetColumn(infoStack, 1); headerGrid.Children.Add(infoStack);
-                headerBorder.Child = headerGrid;
-                Grid.SetRow(headerBorder, 0); mainGrid.Children.Add(headerBorder);
+                Grid.SetColumn(btnClear, 2); headerGrid.Children.Add(btnClear);
+                topBorder.Child = headerGrid;
+                Grid.SetRow(topBorder, 0); mainGrid.Children.Add(topBorder);
 
-                // --- 2. Chat List (Bubbles) ---
+                // --- 2. Chat List (Custom Rendering) ---
                 var scrollViewer = new ScrollViewer { Padding = new Thickness(10), VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
                 _chatList = new ItemsControl {
                     ItemsSource = _messages,
@@ -92,53 +96,41 @@ public class PCFileServer {
 
                 // --- 3. Input & Actions ---
                 var inputArea = new Grid { Margin = new Thickness(15), Height = 50 };
-                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // + Button
-                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // TextBox
-                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Send Button
+                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
                 var btnAdd = new Button { 
-                    Content = "➕", Width = 40, Height = 40, FontSize = 20, Margin = new Thickness(0,0,10,0),
+                    Content = "➕", Width = 45, Height = 45, FontSize = 22, Margin = new Thickness(0,0,10,0),
                     Background = new SolidColorBrush(Color.FromRgb(45, 55, 72)), Foreground = Brushes.White, BorderThickness = new Thickness(0)
                 };
                 btnAdd.Click += (s, e) => {
                     var dialog = new Microsoft.Win32.OpenFileDialog();
-                    if (dialog.ShowDialog() == true) {
-                        SendFile(dialog.FileName);
-                    }
+                    if (dialog.ShowDialog() == true) SendFile(dialog.FileName);
                 };
 
                 var txtBox = new TextBox { 
-                    FontSize = 14, VerticalContentAlignment = VerticalAlignment.Center, Padding = new Thickness(10,0,10,0),
-                    Background = new SolidColorBrush(Color.FromRgb(40, 40, 45)), Foreground = Brushes.White, BorderThickness = new Thickness(1)
+                    FontSize = 14, VerticalContentAlignment = VerticalAlignment.Center, Padding = new Thickness(12,0,12,0),
+                    Background = new SolidColorBrush(Color.FromRgb(40, 40, 45)), Foreground = Brushes.White, BorderThickness = new Thickness(1), BorderBrush = Brushes.DimGray
                 };
                 var btnSend = new Button { 
-                    Content = "发送", Width = 80, Margin = new Thickness(10,0,0,0),
-                    Background = new SolidColorBrush(Color.FromRgb(99, 102, 241)), Foreground = Brushes.White, BorderThickness = new Thickness(0)
+                    Content = "发送", Width = 90, Margin = new Thickness(10,0,0,0),
+                    Background = new SolidColorBrush(Color.FromRgb(99, 102, 241)), Foreground = Brushes.White, BorderThickness = new Thickness(0), FontWeight = FontWeights.Bold
                 };
                 
-                btnSend.Click += (s, e) => {
-                    if (!string.IsNullOrEmpty(txtBox.Text)) {
-                        SendText(txtBox.Text);
-                        txtBox.Clear();
-                    }
-                };
-                txtBox.KeyDown += (s, e) => {
-                    if (e.Key == System.Windows.Input.Key.Enter && !string.IsNullOrEmpty(txtBox.Text)) {
-                        SendText(txtBox.Text);
-                        txtBox.Clear();
-                    }
-                };
+                Action doSend = () => { if (!string.IsNullOrEmpty(txtBox.Text)) { SendText(txtBox.Text); txtBox.Clear(); } };
+                btnSend.Click += (s, e) => doSend();
+                txtBox.KeyDown += (s, e) => { if (e.Key == System.Windows.Input.Key.Enter) doSend(); };
                 
                 Grid.SetColumn(btnAdd, 0); inputArea.Children.Add(btnAdd);
                 Grid.SetColumn(txtBox, 1); inputArea.Children.Add(txtBox);
                 Grid.SetColumn(btnSend, 2); inputArea.Children.Add(btnSend);
                 Grid.SetRow(inputArea, 2); mainGrid.Children.Add(inputArea);
 
-                // --- Drag and Drop ---
                 _window.Drop += (s, e) => {
                     if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
                         string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                        foreach (var file in files) SendFile(file);
+                        foreach (var f in files) SendFile(f);
                     }
                 };
 
@@ -147,40 +139,110 @@ public class PCFileServer {
                 _window.Show();
 
                 StartServer(3001);
-                LogMessage("服务端已就绪，等待手机连接...", false);
+                LogMessage("💡 欢迎使用灵动传 Pro！手机端扫码即可配对。", false);
             } catch (Exception ex) { MessageBox.Show(ex.Message); }
-        }) ;
+        });
     }
 
-    private static void LogMessage(string content, bool isMe) {
+    private static void LogMessage(string content, bool isMe, string filePath = null) {
         Application.Current.Dispatcher.Invoke(() => {
-            _messages.Add(new ChatMessage {
+            var msg = new ChatMessage {
                 Content = content,
                 Time = DateTime.Now.ToString("HH:mm"),
                 Alignment = isMe ? HorizontalAlignment.Right : HorizontalAlignment.Left,
                 Background = isMe ? new SolidColorBrush(Color.FromRgb(99, 102, 241)) : new SolidColorBrush(Color.FromRgb(45, 55, 72)),
-                Icon = isMe ? "👨" : "📱"
-            });
-            // 自动滚动到底部
-            if (VisualTreeHelper.GetChildrenCount(_chatList.Parent as ScrollViewer) > 0) {
-                var scrollViewer = _chatList.Parent as ScrollViewer;
-                scrollViewer.ScrollToEnd();
+                FilePath = filePath
+            };
+            if (filePath != null && (filePath.ToLower().EndsWith(".jpg") || filePath.ToLower().EndsWith(".png") || filePath.ToLower().EndsWith(".jpeg"))) {
+                try {
+                    var bi = new BitmapImage();
+                    bi.BeginInit(); bi.UriSource = new Uri(filePath); bi.DecodePixelWidth = 200; bi.EndInit();
+                    msg.ImageSource = bi; msg.ImageVisibility = Visibility.Visible;
+                } catch { }
             }
+            _messages.Add(msg);
+            
+            // Auto scroll
+            var scroll = FindVisualChild<ScrollViewer>(_chatList);
+            if (scroll != null) scroll.ScrollToEnd();
         });
     }
 
     private static DataTemplate CreateMessageTemplate() {
-        var xaml = @"<DataTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'>
-            <Grid Margin='0,5,0,5' HorizontalAlignment='{Binding Alignment}'>
-                <StackPanel Orientation='Vertical'>
-                    <Border CornerRadius='10' Padding='12,8,12,8' Background='{Binding Background}' MaxWidth='350'>
-                        <TextBlock Text='{Binding Content}' TextWrapping='Wrap' Foreground='White' FontSize='13'/>
-                    </Border>
-                    <TextBlock Text='{Binding Time}' FontSize='9' Foreground='Gray' HorizontalAlignment='{Binding Alignment}' Margin='2,2,2,0'/>
-                </StackPanel>
-            </Grid>
-        </DataTemplate>";
-        return (DataTemplate)System.Windows.Markup.XamlReader.Parse(xaml);
+        // Build template manually to handle events via FrameworkElementFactory
+        var template = new DataTemplate(typeof(ChatMessage));
+        var grid = new FrameworkElementFactory(typeof(Grid));
+        grid.SetValue(Grid.MarginProperty, new Thickness(0, 5, 0, 5));
+        grid.SetBinding(Grid.HorizontalAlignmentProperty, new Binding("Alignment"));
+
+        // Context Menu
+        var menu = new ContextMenu();
+        var miOpen = new MenuItem { Header = "📂 打开所在文件夹" };
+        miOpen.Click += (s, e) => {
+            var m = (s as MenuItem).DataContext as ChatMessage;
+            if (!string.IsNullOrEmpty(m.FilePath)) System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{m.FilePath}\"");
+        };
+        var miCopy = new MenuItem { Header = "📋 复制文字" };
+        miCopy.Click += (s, e) => { var m = (s as MenuItem).DataContext as ChatMessage; Clipboard.SetText(m.Content); };
+        menu.Items.Add(miOpen); menu.Items.Add(miCopy);
+        grid.SetValue(Grid.ContextMenuProperty, menu);
+
+        var stack = new FrameworkElementFactory(typeof(StackPanel));
+        
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(10));
+        border.SetValue(Border.PaddingProperty, new Thickness(12, 8, 12, 8));
+        border.SetBinding(Border.BackgroundProperty, new Binding("Background"));
+        border.SetValue(Border.MaxWidthProperty, 320.0);
+        border.SetValue(Border.CursorProperty, System.Windows.Input.Cursors.Hand);
+        border.AddHandler(Border.MouseLeftButtonDownEvent, new System.Windows.Input.MouseButtonEventHandler((s, e) => {
+            var m = (s as Border).DataContext as ChatMessage;
+            if (m.ImageVisibility == Visibility.Visible && !string.IsNullOrEmpty(m.FilePath)) {
+                var preview = new Window { Title = "大图预览", Width = 800, Height = 600, WindowStartupLocation = WindowStartupLocation.CenterScreen };
+                preview.Content = new Image { Source = new BitmapImage(new Uri(m.FilePath)), Stretch = Stretch.Uniform };
+                preview.Show();
+            }
+        }));
+
+        var innerStack = new FrameworkElementFactory(typeof(StackPanel));
+        
+        var img = new FrameworkElementFactory(typeof(Image));
+        img.SetBinding(Image.SourceProperty, new Binding("ImageSource"));
+        img.SetBinding(Image.VisibilityProperty, new Binding("ImageVisibility"));
+        img.SetValue(Image.MaxWidthProperty, 200.0);
+        img.SetValue(Image.MarginProperty, new Thickness(0, 0, 0, 5));
+        
+        var txt = new FrameworkElementFactory(typeof(TextBlock));
+        txt.SetBinding(TextBlock.TextProperty, new Binding("Content"));
+        txt.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
+        txt.SetValue(TextBlock.ForegroundProperty, Brushes.White);
+        txt.SetValue(TextBlock.FontSizeProperty, 13.0);
+
+        innerStack.AppendChild(img);
+        innerStack.AppendChild(txt);
+        border.AppendChild(innerStack);
+        
+        var timeTxt = new FrameworkElementFactory(typeof(TextBlock));
+        timeTxt.SetBinding(TextBlock.TextProperty, new Binding("Time"));
+        timeTxt.SetValue(TextBlock.FontSizeProperty, 9.0);
+        timeTxt.SetValue(TextBlock.ForegroundProperty, Brushes.Gray);
+        timeTxt.SetBinding(TextBlock.HorizontalAlignmentProperty, new Binding("Alignment"));
+        timeTxt.SetValue(TextBlock.MarginProperty, new Thickness(2, 2, 2, 0));
+
+        stack.AppendChild(border);
+        stack.AppendChild(timeTxt);
+        grid.AppendChild(stack);
+        template.VisualTree = grid;
+        return template;
+    }
+
+    private static T FindVisualChild<T>(DependencyObject obj) where T : DependencyObject {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++) {
+            var child = VisualTreeHelper.GetChild(obj, i);
+            if (child is T t) return t;
+            var res = FindVisualChild<T>(child); if (res != null) return res;
+        }
+        return null;
     }
 
     private static BitmapImage GetQRImage(string ip) {
@@ -189,12 +251,8 @@ public class PCFileServer {
     }
 
     private static void SendText(string text) {
-        string escapedContent = text.Replace("\\", "\\\\")
-                                     .Replace("\"", "\\\"")
-                                     .Replace("\n", "\\n")
-                                     .Replace("\r", "\\r")
-                                     .Replace("\t", "\\t");
-        string json = "{\"hasFile\": true, \"type\": \"text\", \"content\": \"" + escapedContent + "\"}";
+        string escaped = text.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
+        string json = "{\"hasFile\": true, \"type\": \"text\", \"content\": \"" + escaped + "\"}";
         lock (_outgoingQueue) { _outgoingQueue.Add(json); }
         LogMessage(text, true);
     }
@@ -204,13 +262,13 @@ public class PCFileServer {
             byte[] bytes = File.ReadAllBytes(path);
             string base64 = Convert.ToBase64String(bytes);
             string ext = Path.GetExtension(path).ToLower();
-            string mime = (ext == ".jpg" || ext == ".png" || ext == ".jpeg") ? "image/jpeg" : "application/octet-stream";
+            bool isImg = (ext == ".jpg" || ext == ".png" || ext == ".jpeg");
             string fileName = Path.GetFileName(path);
-            
+            string mime = isImg ? "image/jpeg" : "application/octet-stream";
             string json = "{\"hasFile\": true, \"type\": \"file\", \"fileName\": \"" + fileName + "\", \"fileData\": \"data:" + mime + ";base64," + base64 + "\"}";
             lock (_outgoingQueue) { _outgoingQueue.Add(json); }
-            LogMessage($"[发送文件] {fileName}", true);
-        } catch (Exception ex) { MessageBox.Show("发送失败: " + ex.Message); }
+            LogMessage(isImg ? $"[图片] {fileName}" : $"[文件] {fileName}", true, path);
+        } catch (Exception ex) { MessageBox.Show("失败: " + ex.Message); }
     }
 
     private static string GetSmartIPAddress() {
@@ -224,12 +282,7 @@ public class PCFileServer {
         _listener.Prefixes.Add($"http://*:{port}/");
         _listener.Start();
         Task.Run(async () => {
-            while (!_cts.Token.IsCancellationRequested) {
-                try {
-                    var ctx = await _listener.GetContextAsync();
-                    ProcessRequest(ctx);
-                } catch { break; }
-            }
+            while (!_cts.Token.IsCancellationRequested) { try { var ctx = await _listener.GetContextAsync(); ProcessRequest(ctx); } catch { break; } }
         });
     }
 
@@ -239,39 +292,31 @@ public class PCFileServer {
         res.Headers.Add("Access-Control-Allow-Headers", "Content-Type, File-Name, Msg-Type");
         res.Headers.Add("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
         if (req.HttpMethod == "OPTIONS") { res.Close(); return; }
-
         try {
             if (req.Url.AbsolutePath == "/upload") {
                 string msgType = req.Headers["Msg-Type"] ?? "file";
                 if (msgType == "text") {
-                    using (var reader = new StreamReader(req.InputStream, Encoding.UTF8)) {
-                        string text = await reader.ReadToEndAsync();
-                        LogMessage(text, false);
-                        Application.Current.Dispatcher.Invoke(() => { Clipboard.SetText(text); });
+                    using (var r = new StreamReader(req.InputStream, Encoding.UTF8)) {
+                        string t = await r.ReadToEndAsync(); LogMessage(t, false);
+                        Application.Current.Dispatcher.Invoke(() => Clipboard.SetText(t));
                     }
                 } else {
-                    string fileName = Encoding.UTF8.GetString(Convert.FromBase64String(req.Headers["File-Name"]));
+                    string fn = Encoding.UTF8.GetString(Convert.FromBase64String(req.Headers["File-Name"]));
                     string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "手机传来");
                     if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-                    string savePath = Path.Combine(folder, fileName);
-                    using (var fs = new FileStream(savePath, FileMode.Create)) { await req.InputStream.CopyToAsync(fs); }
-                    LogMessage($"[收到文件] {fileName}", false);
-                    if (fileName.EndsWith(".jpg") || fileName.EndsWith(".png")) {
-                        Application.Current.Dispatcher.Invoke(() => { Clipboard.SetImage(new BitmapImage(new Uri(savePath))); });
+                    string path = Path.Combine(folder, fn);
+                    using (var fs = new FileStream(path, FileMode.Create)) { await req.InputStream.CopyToAsync(fs); }
+                    LogMessage(fn, false, path);
+                    if (fn.ToLower().EndsWith(".jpg") || fn.ToLower().EndsWith(".png")) {
+                        Application.Current.Dispatcher.Invoke(() => { try { Clipboard.SetImage(new BitmapImage(new Uri(path))); } catch { } });
                     }
                 }
             } else if (req.Url.AbsolutePath == "/poll") {
                 string json = "{\"hasFile\": false}";
-                lock (_outgoingQueue) {
-                    if (_outgoingQueue.Count > 0) {
-                        json = _outgoingQueue[0];
-                        _outgoingQueue.RemoveAt(0);
-                    }
-                }
-                byte[] buffer = Encoding.UTF8.GetBytes(json);
-                res.OutputStream.Write(buffer, 0, buffer.Length);
+                lock (_outgoingQueue) { if (_outgoingQueue.Count > 0) { json = _outgoingQueue[0]; _outgoingQueue.RemoveAt(0); } }
+                byte[] buffer = Encoding.UTF8.GetBytes(json); res.OutputStream.Write(buffer, 0, buffer.Length);
             }
-        } catch { } finally { res.Close(); }
+        } catch { } finally { try { res.Close(); } catch { } }
     }
 
     private static void StopServer() {

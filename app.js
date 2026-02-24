@@ -1,4 +1,4 @@
-// 灵动传 Pro - IM 核心引擎 (扫码强化版)
+// 灵动传 Pro - IM 核心引擎 (v1.1 优化版)
 let PC_IP = new URLSearchParams(window.location.search).get('ip') || localStorage.getItem('pc_server_ip') || '192.168.1.5';
 if (PC_IP) localStorage.setItem('pc_server_ip', PC_IP);
 
@@ -15,89 +15,16 @@ const statusDot = document.querySelector('.status-dot');
 const savedIpEl = document.getElementById('saved-ip');
 const scanBtn = document.getElementById('scanBtn');
 const readerEl = document.getElementById('reader');
+const clearMsgsBtn = document.getElementById('clearMsgs');
+
+// 图片模态框元素
+const imageModal = document.getElementById('imageModal');
+const imgFull = document.getElementById('imgFull');
+const closeBtn = document.querySelector('.close');
 
 savedIpEl.textContent = PC_IP;
 
-// --- 扫码逻辑 ---
-let html5QrCode;
-scanBtn.addEventListener('click', () => {
-    // 调试检测：库是否加载
-    if (typeof Html5Qrcode === 'undefined') {
-        alert("错误：扫码组件尚未加载，请检查网络或刷新页面");
-        return;
-    }
-
-    if (readerEl.style.display === 'none') {
-        // 检查相机底层支持
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            alert("抱歉：当前环境不支持直接调用相机。请确保：\n1. 使用 HTTPS 访问\n2. 已授予浏览器相机权限");
-            return;
-        }
-
-        readerEl.style.display = 'block';
-        scanBtn.textContent = '❌ 取消扫码';
-
-        try {
-            html5QrCode = new Html5Qrcode("reader");
-            html5QrCode.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                (decodedText) => {
-                    try {
-                        const url = new URL(decodedText);
-                        const ip = url.searchParams.get('ip');
-                        if (ip) {
-                            applyNewIp(ip);
-                            stopScan();
-                        } else if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(decodedText)) {
-                            applyNewIp(decodedText);
-                            stopScan();
-                        }
-                    } catch (e) {
-                        if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(decodedText)) {
-                            applyNewIp(decodedText);
-                            stopScan();
-                        } else {
-                            alert("扫码成功，但内容不符合规约: " + decodedText);
-                        }
-                    }
-                },
-                (errorMessage) => { /* 忽略扫描过程报错 */ }
-            ).catch(err => {
-                alert("无法启动相机：" + err + "\n\n提示：如果是安装的 App，请在手机系统设置->应用->权限中手动开启'相机'。");
-                stopScan();
-            });
-        } catch (e) {
-            alert("初始化扫描器失败: " + e.message);
-            stopScan();
-        }
-    } else {
-        stopScan();
-    }
-});
-
-function stopScan() {
-    if (html5QrCode) {
-        html5QrCode.stop().then(() => {
-            readerEl.style.display = 'none';
-            scanBtn.textContent = '📷 扫码配对';
-        }).catch(() => {
-            readerEl.style.display = 'none';
-            scanBtn.textContent = '📷 扫码配对';
-        });
-    }
-}
-
-function applyNewIp(ip) {
-    PC_IP = ip;
-    PC_SERVER_URL = `http://${ip}:3001`;
-    localStorage.setItem('pc_server_ip', ip);
-    savedIpEl.textContent = ip;
-    addMessage({ role: 'system', type: 'text', content: `✅ 配对成功: ${ip}` });
-    poll();
-}
-
-// 1. 消息记录
+// --- 消息处理 ---
 let chatHistory = JSON.parse(localStorage.getItem('chat_history') || '[]');
 
 function addMessage(msg) {
@@ -116,10 +43,11 @@ function renderMessage(msg) {
         div.innerHTML = msg.content + (msg.role === 'ai' ? '<br><small style="color: #10b981; font-size: 10px;">点击拷贝</small>' : '');
         div.onclick = () => copyText(msg.content);
     } else if (msg.type === 'image' || (msg.data && msg.data.startsWith('data:image'))) {
+        const dataUrl = msg.url || msg.data;
         div.innerHTML = `
-            <div class="image-bubble">
-                <img src="${msg.url || msg.data}" style="max-width: 100%; border-radius: 8px; display: block;">
-                <span class="file-size" style="display:block; font-size:10px; opacity:0.7; margin-top:5px;">图片已接收</span>
+            <div class="image-bubble" onclick="zoomImg('${dataUrl}')">
+                <img src="${dataUrl}">
+                <span class="file-size" style="display:block; font-size:10px; opacity:0.7; margin:top:5px;">图片预览</span>
             </div>
         `;
     } else {
@@ -128,7 +56,7 @@ function renderMessage(msg) {
                 <span class="file-icon">📄</span>
                 <div>
                     <span class="file-name">${msg.name}</span>
-                    <span class="file-size">${msg.status}</span>
+                    <span class="file-size">${msg.status || '文件'}</span>
                 </div>
             </div>
         `;
@@ -138,11 +66,64 @@ function renderMessage(msg) {
     chatFlow.scrollTop = chatFlow.scrollHeight;
 }
 
+// --- 图片查看 logic ---
+window.zoomImg = (url) => {
+    imageModal.style.display = "block";
+    imgFull.src = url;
+};
+closeBtn.onclick = () => imageModal.style.display = "none";
+imageModal.onclick = (e) => { if (e.target == imageModal) imageModal.style.display = "none"; };
+
+// --- 清空 logic ---
+clearMsgsBtn.onclick = () => {
+    if (confirm("确定要清空所有聊天记录吗？")) {
+        chatHistory = [];
+        localStorage.removeItem('chat_history');
+        chatFlow.innerHTML = '<div class="system-msg">消息已清空</div>';
+    }
+};
+
+// --- 扫码 logic ---
+let html5QrCode;
+scanBtn.addEventListener('click', () => {
+    if (typeof Html5Qrcode === 'undefined') { alert("扫码组件加载中..."); return; }
+    if (readerEl.style.display === 'none') {
+        readerEl.style.display = 'block';
+        scanBtn.textContent = '❌ 取消';
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
+            if (text.includes('ip=')) {
+                applyNewIp(new URL(text).searchParams.get('ip'));
+                stopScan();
+            } else if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(text)) {
+                applyNewIp(text);
+                stopScan();
+            }
+        }).catch(() => stopScan());
+    } else { stopScan(); }
+});
+
+function stopScan() {
+    if (html5QrCode) html5QrCode.stop().then(() => {
+        readerEl.style.display = 'none';
+        scanBtn.textContent = '📷 扫码配对';
+    });
+}
+
+function applyNewIp(ip) {
+    PC_IP = ip;
+    PC_SERVER_URL = `http://${ip}:3001`;
+    localStorage.setItem('pc_server_ip', ip);
+    savedIpEl.textContent = ip;
+    addMessage({ role: 'system', type: 'text', content: `✅ 已连接 IP: ${ip}` });
+    poll();
+}
+
+// --- 核心交互 ---
 window.copyText = (text) => {
     navigator.clipboard.writeText(text);
 };
 
-// 2. 轮询
 async function poll() {
     try {
         const res = await fetch(`${PC_SERVER_URL}/poll`, { mode: 'cors' });
@@ -154,7 +135,7 @@ async function poll() {
                 if (data.type === 'text') {
                     addMessage({ role: 'ai', type: 'text', content: data.content });
                 } else {
-                    const isImg = data.fileData.includes('image/');
+                    const isImg = data.fileData && data.fileData.includes('image/');
                     if (isImg) {
                         addMessage({ role: 'ai', type: 'image', data: data.fileData, name: data.fileName });
                     } else {
@@ -174,7 +155,6 @@ async function poll() {
 }
 setInterval(poll, 3000);
 
-// 3. 发送
 textInput.addEventListener('input', () => sendBtn.disabled = !textInput.value.trim());
 
 sendBtn.addEventListener('click', async () => {
@@ -184,15 +164,14 @@ sendBtn.addEventListener('click', async () => {
         const res = await fetch(`${PC_SERVER_URL}/upload`, {
             method: 'POST',
             headers: { 'Msg-Type': 'text', 'Content-Type': 'text/plain' },
-            body: text,
-            mode: 'cors'
+            body: text, mode: 'cors'
         });
         if (res.ok) {
             addMessage({ role: 'me', type: 'text', content: text });
             textInput.value = '';
             sendBtn.disabled = true;
         }
-    } catch (e) { alert('发送失败，请确认电脑助手已启动'); }
+    } catch (e) { alert('发送失败'); }
 });
 
 attachBtn.addEventListener('click', () => fileInput.click());
@@ -200,6 +179,18 @@ attachBtn.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    const isImage = file.type.startsWith('image/');
+
+    // 如果是图片，先读取用于本地预览
+    let localPreviewData = null;
+    if (isImage) {
+        localPreviewData = await new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.readAsDataURL(file);
+        });
+    }
+
     const encodedName = btoa(unescape(encodeURIComponent(file.name)));
     try {
         const res = await fetch(`${PC_SERVER_URL}/upload`, {
@@ -208,10 +199,14 @@ fileInput.addEventListener('change', async (e) => {
             body: file, mode: 'cors'
         });
         if (res.ok) {
-            addMessage({ role: 'me', type: 'file', name: file.name, status: '发送成功' });
+            if (isImage) {
+                addMessage({ role: 'me', type: 'image', data: localPreviewData, name: file.name });
+            } else {
+                addMessage({ role: 'me', type: 'file', name: file.name, status: '发送成功' });
+            }
             fileInput.value = '';
         }
-    } catch (e) { alert('文件投送失败'); }
+    } catch (e) { alert('文件发送失败'); }
 });
 
 chatHistory.forEach(renderMessage);

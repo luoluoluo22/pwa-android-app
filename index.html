@@ -24,7 +24,10 @@
                 <h1 id="connection-state">正在寻找电脑...</h1>
                 <button id="scanBtn" class="scan-entry">📷 扫码配对</button>
             </div>
-            <div class="build-ver">Build: 02-24 23:35</div>
+            <div class="header-right">
+                <button id="clearMsgs" class="icon-btn" title="清空记录">🗑️</button>
+                <div class="build-ver">Pro v1.1</div>
+            </div>
         </div>
 
         <!-- 扫码预览容器 (默认隐藏) -->
@@ -42,6 +45,12 @@
             <button class="send-btn" id="sendBtn" disabled>发送</button>
             <input type="file" id="fileInput" hidden>
         </div>
+    </div>
+
+    <!-- 图片放大查看器 -->
+    <div id="imageModal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="imgFull">
     </div>
 
     <script src="app.js"></script>

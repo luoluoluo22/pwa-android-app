@@ -33,16 +33,20 @@ io.on('connection', (socket) => {
     });
 
     // 处理文件传输指令
-    socket.on('send_file', (data) => {
+    socket.on('send_file', (data, callback) => {
         console.log(`收到来自 ${socket.id} 的文件传输请求:`, data.fileName);
-        // 向所有设备（除了发送者自己）广播文件
+
+        // 向所有设备广播文件
         socket.broadcast.emit('receive_file', {
             from: devices.get(socket.id)?.name || '未知设备',
             fileName: data.fileName,
             fileSize: data.fileSize,
             fileType: data.fileType,
-            fileData: data.fileData // 在实际大文件传输中，这里通常是 S3 链接或块数据
+            fileData: data.fileData
         });
+
+        // 给发送者一个回执
+        if (callback) callback({ status: 'ok' });
     });
 
     socket.on('disconnect', () => {

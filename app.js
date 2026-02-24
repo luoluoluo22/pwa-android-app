@@ -88,22 +88,23 @@ sendBtn.addEventListener('click', () => {
         reader.onload = function (e) {
             const fileData = e.target.result;
 
+            // 使用回调函数确认服务器已收到
             socket.emit('send_file', {
                 fileName: file.name,
                 fileSize: (file.size / 1024).toFixed(1) + ' KB',
                 fileType: file.type,
-                fileData: fileData // 发送 Base64 数据
+                fileData: fileData
+            }, (response) => {
+                if (response && response.status === 'ok') {
+                    sendBtn.textContent = '发送成功！';
+                    setTimeout(() => {
+                        sendBtn.textContent = '发送';
+                        sendBtn.disabled = false;
+                        fileList.innerHTML = '<div class="empty-hint">等待接收或选择文件...</div>';
+                        fileInput.value = '';
+                    }, 1500);
+                }
             });
-
-            setTimeout(() => {
-                sendBtn.textContent = '发送成功！';
-                setTimeout(() => {
-                    sendBtn.textContent = '发送';
-                    sendBtn.disabled = false;
-                    fileList.innerHTML = '<div class="empty-hint">等待接收或选择文件...</div>';
-                    fileInput.value = '';
-                }, 1500);
-            }, 500);
         };
 
         reader.readAsDataURL(file);

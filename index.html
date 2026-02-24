@@ -7,6 +7,7 @@
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>灵动传 Pro - IM 版</title>
     <meta name="theme-color" content="#0f172a">
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <link rel="manifest" href="manifest.json">
     <link
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Sans+SC:wght@300;400;700&display=swap"
@@ -21,11 +22,15 @@
             <div class="header-left">
                 <span class="status-dot"></span>
                 <h1 id="connection-state">正在寻找电脑...</h1>
+                <button id="scanBtn" class="scan-entry">📷 扫码配对</button>
             </div>
             <div class="build-ver">Build: 02-24 23:35</div>
         </div>
 
-        <!-- 聊天流 (显示历史记录和新消息) -->
+        <!-- 扫码预览容器 (默认隐藏) -->
+        <div id="reader" style="width: 100%; display: none;"></div>
+
+        <!-- 聊天流 -->
         <div class="chat-flow" id="chatFlow">
             <div class="system-msg">欢迎使用扫码配对。已保存的 IP: <span id="saved-ip">-</span></div>
         </div>

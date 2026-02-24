@@ -1,183 +1,186 @@
-// 极简传书 Pro - 核心引擎
-let PC_IP = localStorage.getItem('pc_server_ip') || '192.168.1.5';
+// 灵动传 Pro - IM 核心引擎 (扫码版)
+let PC_IP = new URLSearchParams(window.location.search).get('ip') || localStorage.getItem('pc_server_ip') || '192.168.1.5';
+if (PC_IP) localStorage.setItem('pc_server_ip', PC_IP);
+
 let PC_SERVER_URL = `http://${PC_IP}:3001`;
 
 // DOM 元素
-const fileInput = document.getElementById('fileInput');
-const fileList = document.getElementById('fileList');
-const historyList = document.getElementById('historyList');
+const chatFlow = document.getElementById('chatFlow');
+const textInput = document.getElementById('textInput');
 const sendBtn = document.getElementById('sendBtn');
+const fileInput = document.getElementById('fileInput');
+const attachBtn = document.getElementById('attachBtn');
+const connectionState = document.getElementById('connection-state');
 const statusDot = document.querySelector('.status-dot');
-const connectionText = document.getElementById('connection-text');
-const dropZone = document.getElementById('dropZone');
-const clearHistoryBtn = document.getElementById('clearHistory');
+const savedIpEl = document.getElementById('saved-ip');
+const scanBtn = document.getElementById('scanBtn');
+const readerEl = document.getElementById('reader');
 
-// 点击状态文字可以修改 IP
-connectionText.addEventListener('click', () => {
-    const newIp = prompt('请输入电脑的局域网 IP 地址:', PC_IP);
-    if (newIp && /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(newIp)) {
-        PC_IP = newIp;
-        PC_SERVER_URL = `http://${newIp}:3001`;
-        localStorage.setItem('pc_server_ip', newIp);
-        connectionText.textContent = '正在重新连接...';
-        updateStatus();
+savedIpEl.textContent = PC_IP;
+
+// --- 扫码逻辑 ---
+let html5QrCode;
+scanBtn.addEventListener('click', () => {
+    if (readerEl.style.display === 'none') {
+        readerEl.style.display = 'block';
+        scanBtn.textContent = '❌ 取消扫码';
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            (decodedText) => {
+                try {
+                    const url = new URL(decodedText);
+                    const ip = url.searchParams.get('ip');
+                    if (ip) {
+                        applyNewIp(ip);
+                        stopScan();
+                    }
+                } catch (e) {
+                    // 如果不是 URL，尝试直接判断是否是 IP
+                    if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(decodedText)) {
+                        applyNewIp(decodedText);
+                        stopScan();
+                    }
+                }
+            },
+            () => { }
+        ).catch(err => {
+            alert("开启相机失败，请授予相机权限");
+            stopScan();
+        });
+    } else {
+        stopScan();
     }
 });
 
-
-// 1. 初始化传输历史
-let transferHistory = JSON.parse(localStorage.getItem('transfer_history') || '[]');
-
-function saveHistory(item) {
-    transferHistory.unshift({
-        ...item,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    });
-    // 仅保留最近 20 条
-    if (transferHistory.length > 20) transferHistory.pop();
-    localStorage.setItem('transfer_history', JSON.stringify(transferHistory));
-    renderHistory();
+function stopScan() {
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+            readerEl.style.display = 'none';
+            scanBtn.textContent = '📷 扫码配对';
+        }).catch(() => {
+            readerEl.style.display = 'none';
+            scanBtn.textContent = '📷 扫码配对';
+        });
+    }
 }
 
-function renderHistory() {
-    historyList.innerHTML = transferHistory.map(item => `
-        <div class="history-item">
-            <div class="item-info">
-                <span class="item-icon">${item.type === 'image' ? '🖼️' : '📄'}</span>
+function applyNewIp(ip) {
+    PC_IP = ip;
+    PC_SERVER_URL = `http://${ip}:3001`;
+    localStorage.setItem('pc_server_ip', ip);
+    savedIpEl.textContent = ip;
+    addMessage({ role: 'system', type: 'text', content: `✅ 配对成功: ${ip}` });
+    poll();
+}
+
+// 1. 消息记录
+let chatHistory = JSON.parse(localStorage.getItem('chat_history') || '[]');
+
+function addMessage(msg) {
+    chatHistory.push(msg);
+    if (chatHistory.length > 50) chatHistory.shift();
+    localStorage.setItem('chat_history', JSON.stringify(chatHistory));
+    renderMessage(msg);
+}
+
+function renderMessage(msg) {
+    const div = document.createElement('div');
+    div.className = `bubble ${msg.role === 'me' ? 'sent' : 'received'}`;
+    if (msg.role === 'system') div.className = 'system-msg';
+
+    if (msg.type === 'text') {
+        div.innerHTML = msg.content + (msg.role === 'ai' ? '<br><small style="color: #10b981; font-size: 10px;">点击拷贝</small>' : '');
+        div.onclick = () => copyText(msg.content);
+    } else {
+        div.innerHTML = `
+            <div class="file-bubble">
+                <span class="file-icon">📄</span>
                 <div>
-                    <span class="item-name">${item.name}</span>
-                    <span class="item-time">${item.time}</span>
+                    <span class="file-name">${msg.name}</span>
+                    <span class="file-size">${msg.status}</span>
                 </div>
             </div>
-            <span class="item-status">${item.status}</span>
-        </div>
-    `).join('');
+        `;
+        if (msg.url) div.onclick = () => window.open(msg.url);
+    }
+    chatFlow.appendChild(div);
+    chatFlow.scrollTop = chatFlow.scrollHeight;
 }
 
-// 2. 状态监听：轮询电脑端并检查活跃
-async function updateStatus() {
+window.copyText = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+        // 轻量提示
+    });
+};
+
+// 2. 轮询
+async function poll() {
     try {
         const res = await fetch(`${PC_SERVER_URL}/poll`, { mode: 'cors' });
         if (res.ok) {
             statusDot.style.background = '#10b981';
-            statusDot.style.boxShadow = '0 0 10px #10b981';
-            connectionText.textContent = '电脑端已就绪';
-
+            connectionState.textContent = '电脑助手在线';
             const data = await res.json();
             if (data.hasFile) {
-                // 收到电脑端传来的文件：支持从 Base64 转为 Blob 安全下载
-                const [header, base64Data] = data.fileData.split(',');
-                const mime = header.match(/:(.*?);/)[1];
-                const binary = atob(base64Data);
-                const array = [];
-                for (let i = 0; i < binary.length; i++) array.push(binary.charCodeAt(i));
-                const blob = new Blob([new Uint8Array(array)], { type: mime });
-                
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = data.fileName;
-                link.click();
-                
-                // 释放内存
-                setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-                saveHistory({ name: data.fileName, type: mime.startsWith('image/') ? 'image' : 'file', status: '已接收 ↓' });
-                LogToScreen(`成功接收文件: ${data.fileName}`);
+                if (data.type === 'text') {
+                    addMessage({ role: 'ai', type: 'text', content: data.content });
+                } else {
+                    const link = document.createElement('a');
+                    link.href = data.fileData;
+                    link.download = data.fileName;
+                    link.click();
+                    addMessage({ role: 'ai', type: 'file', name: data.fileName, status: '已接收' });
+                }
             }
         }
     } catch (e) {
         statusDot.style.background = '#ef4444';
-        statusDot.style.boxShadow = '0 0 10px #ef4444';
-        connectionText.textContent = '电脑助手未在线';
+        connectionState.textContent = '电脑端离线';
     }
 }
-setInterval(updateStatus, 5000);
+setInterval(poll, 3000);
 
-// 3. 文件处理逻辑
-dropZone.addEventListener('click', () => fileInput.click());
-
-fileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) {
-        const isImage = file.type.startsWith('image/');
-        fileList.innerHTML = `
-            <div class="active-preview">
-                <div class="upload-icon">${isImage ? '🖼️' : '📄'}</div>
-                <p>${file.name}</p>
-                <span>${(file.size / 1024).toFixed(1)} KB</span>
-            </div>
-        `;
-        sendBtn.disabled = false;
-    }
-});
+// 3. 发送
+textInput.addEventListener('input', () => sendBtn.disabled = !textInput.value.trim());
 
 sendBtn.addEventListener('click', async () => {
-    const file = fileInput.files[0];
-    if (!file) return;
-
-    sendBtn.textContent = '正在投送...';
-    sendBtn.disabled = true;
-
+    const text = textInput.value.trim();
+    if (!text) return;
     try {
-        const encodedName = btoa(unescape(encodeURIComponent(file.name)));
-        const response = await fetch(`${PC_SERVER_URL}/upload`, {
+        const res = await fetch(`${PC_SERVER_URL}/upload`, {
             method: 'POST',
-            headers: {
-                'File-Name': encodedName,
-                'Content-Type': 'application/octet-stream'
-            },
-            body: file,
+            headers: { 'Msg-Type': 'text', 'Content-Type': 'text/plain' },
+            body: text,
             mode: 'cors'
         });
-
-        if (response.ok) {
-            sendBtn.textContent = '投送成功！';
-            saveHistory({ name: file.name, type: file.type.startsWith('image/') ? 'image' : 'file', status: '已发送 ↑' });
-
-            setTimeout(() => {
-                sendBtn.textContent = '投送给电脑';
-                fileList.innerHTML = `
-                    <div class="empty-hint">
-                        <div class="upload-icon">📤</div>
-                        <p>继续投送</p>
-                    </div>
-                `;
-                fileInput.value = '';
-            }, 1500);
+        if (res.ok) {
+            addMessage({ role: 'me', type: 'text', content: text });
+            textInput.value = '';
+            sendBtn.disabled = true;
         }
-    } catch (error) {
-        alert('投送失败，请检查电脑端是否打开了 Quicker 助手');
-        sendBtn.textContent = '重试';
-        sendBtn.disabled = false;
-    }
+    } catch (e) { alert('发送失败'); }
 });
 
-// 4. 清空历史
-clearHistoryBtn.addEventListener('click', () => {
-    transferHistory = [];
-    localStorage.removeItem('transfer_history');
-    renderHistory();
-});
+attachBtn.addEventListener('click', () => fileInput.click());
 
-// 初始化渲染
-renderHistory();
-updateStatus();
-
-// PWA 安装管理
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    document.getElementById('installBtn').style.display = 'block';
-});
-
-document.getElementById('installBtn').addEventListener('click', async () => {
-    if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
-            document.getElementById('installBtn').style.display = 'none';
+fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const encodedName = btoa(unescape(encodeURIComponent(file.name)));
+    try {
+        const res = await fetch(`${PC_SERVER_URL}/upload`, {
+            method: 'POST',
+            headers: { 'Msg-Type': 'file', 'File-Name': encodedName },
+            body: file, mode: 'cors'
+        });
+        if (res.ok) {
+            addMessage({ role: 'me', type: 'file', name: file.name, status: '发送成功' });
+            fileInput.value = '';
         }
-        deferredPrompt = null;
-    }
+    } catch (e) { alert('文件上传失败'); }
 });
+
+chatHistory.forEach(renderMessage);
+poll();

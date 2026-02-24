@@ -86,7 +86,7 @@ public class PCFileServer {
     private static void StartServerAsync(int port) {
         _cts = new CancellationTokenSource();
         _listener = new HttpListener();
-        _listener.Prefixes.Add($"http://*:{port}/");
+        _listener.Prefixes.Add($"http://+:{port}/");
         _listener.Start();
         Task.Run(async () => {
             while (!_cts.Token.IsCancellationRequested) {

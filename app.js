@@ -1,5 +1,6 @@
-// 极简传书 Pro - 核心核心引擎
-const PC_SERVER_URL = 'http://192.168.1.5:3001';
+// 极简传书 Pro - 核心引擎
+let PC_IP = localStorage.getItem('pc_server_ip') || '192.168.1.5';
+let PC_SERVER_URL = `http://${PC_IP}:3001`;
 
 // DOM 元素
 const fileInput = document.getElementById('fileInput');
@@ -10,6 +11,19 @@ const statusDot = document.querySelector('.status-dot');
 const connectionText = document.getElementById('connection-text');
 const dropZone = document.getElementById('dropZone');
 const clearHistoryBtn = document.getElementById('clearHistory');
+
+// 点击状态文字可以修改 IP
+connectionText.addEventListener('click', () => {
+    const newIp = prompt('请输入电脑的局域网 IP 地址:', PC_IP);
+    if (newIp && /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(newIp)) {
+        PC_IP = newIp;
+        PC_SERVER_URL = `http://${newIp}:3001`;
+        localStorage.setItem('pc_server_ip', newIp);
+        connectionText.textContent = '正在重新连接...';
+        updateStatus();
+    }
+});
+
 
 // 1. 初始化传输历史
 let transferHistory = JSON.parse(localStorage.getItem('transfer_history') || '[]');

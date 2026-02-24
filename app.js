@@ -1,4 +1,4 @@
-// 灵动传 Pro - IM 核心引擎 (扫码版)
+// 灵动传 Pro - IM 核心引擎 (扫码强化版)
 let PC_IP = new URLSearchParams(window.location.search).get('ip') || localStorage.getItem('pc_server_ip') || '192.168.1.5';
 if (PC_IP) localStorage.setItem('pc_server_ip', PC_IP);
 
@@ -21,34 +21,56 @@ savedIpEl.textContent = PC_IP;
 // --- 扫码逻辑 ---
 let html5QrCode;
 scanBtn.addEventListener('click', () => {
+    // 调试检测：库是否加载
+    if (typeof Html5Qrcode === 'undefined') {
+        alert("错误：扫码组件尚未加载，请检查网络或刷新页面");
+        return;
+    }
+
     if (readerEl.style.display === 'none') {
+        // 检查相机底层支持
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert("抱歉：当前环境不支持直接调用相机。请确保：\n1. 使用 HTTPS 访问\n2. 已授予浏览器相机权限");
+            return;
+        }
+
         readerEl.style.display = 'block';
         scanBtn.textContent = '❌ 取消扫码';
-        html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start(
-            { facingMode: "environment" },
-            { fps: 10, qrbox: { width: 250, height: 250 } },
-            (decodedText) => {
-                try {
-                    const url = new URL(decodedText);
-                    const ip = url.searchParams.get('ip');
-                    if (ip) {
-                        applyNewIp(ip);
-                        stopScan();
+
+        try {
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    try {
+                        const url = new URL(decodedText);
+                        const ip = url.searchParams.get('ip');
+                        if (ip) {
+                            applyNewIp(ip);
+                            stopScan();
+                        } else if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(decodedText)) {
+                            applyNewIp(decodedText);
+                            stopScan();
+                        }
+                    } catch (e) {
+                        if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(decodedText)) {
+                            applyNewIp(decodedText);
+                            stopScan();
+                        } else {
+                            alert("扫码成功，但内容不符合规约: " + decodedText);
+                        }
                     }
-                } catch (e) {
-                    // 如果不是 URL，尝试直接判断是否是 IP
-                    if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(decodedText)) {
-                        applyNewIp(decodedText);
-                        stopScan();
-                    }
-                }
-            },
-            () => { }
-        ).catch(err => {
-            alert("开启相机失败，请授予相机权限");
+                },
+                (errorMessage) => { /* 忽略扫描过程报错 */ }
+            ).catch(err => {
+                alert("无法启动相机：" + err + "\n\n提示：如果是安装的 App，请在手机系统设置->应用->权限中手动开启'相机'。");
+                stopScan();
+            });
+        } catch (e) {
+            alert("初始化扫描器失败: " + e.message);
             stopScan();
-        });
+        }
     } else {
         stopScan();
     }
@@ -110,9 +132,7 @@ function renderMessage(msg) {
 }
 
 window.copyText = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
-        // 轻量提示
-    });
+    navigator.clipboard.writeText(text);
 };
 
 // 2. 轮询
@@ -160,7 +180,7 @@ sendBtn.addEventListener('click', async () => {
             textInput.value = '';
             sendBtn.disabled = true;
         }
-    } catch (e) { alert('发送失败'); }
+    } catch (e) { alert('发送失败，请确认电脑助手已启动'); }
 });
 
 attachBtn.addEventListener('click', () => fileInput.click());
@@ -179,7 +199,7 @@ fileInput.addEventListener('change', async (e) => {
             addMessage({ role: 'me', type: 'file', name: file.name, status: '发送成功' });
             fileInput.value = '';
         }
-    } catch (e) { alert('文件上传失败'); }
+    } catch (e) { alert('文件投送失败'); }
 });
 
 chatHistory.forEach(renderMessage);

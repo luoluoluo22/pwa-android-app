@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>极简智联 - PWA 应用</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="极简智联">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Sans+SC:wght@300;400;700&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <header>
+            <div class="status-bar-spacer"></div>
+            <nav>
+                <div class="logo">极简<span>智联</span></div>
+                <div class="menu-icon">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+            </nav>
+        </header>
+
+        <main>
+            <section class="hero">
+                <div class="glass-card main-card">
+                    <h1>即刻开启<br>数字新原力</h1>
+                    <p>这是一个深度优化的 PWA 应用示例，您可以将其添加到主屏幕，获得原生应用般的流畅体验。</p>
+                    <button class="primary-btn" id="installBtn">立即安装应用</button>
+                </div>
+            </section>
+
+            <section class="features">
+                <div class="glass-card feature-item">
+                    <div class="icon">🚀</div>
+                    <h3>极速响应</h3>
+                    <p>离线可用，加载秒开</p>
+                </div>
+                <div class="glass-card feature-item">
+                    <div class="icon">🎨</div>
+                    <h3>精美交互</h3>
+                    <p>沉浸式视觉设计</p>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <div class="tab-bar">
+                <div class="tab-item active"><span class="tab-icon">🏠</span><span>首页</span></div>
+                <div class="tab-item"><span class="tab-icon">⚙️</span><span>设置</span></div>
+                <div class="tab-item"><span class="tab-icon">👤</span><span>我的</span></div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker 注册成功'))
+                    .catch(err => console.log('Service Worker 注册失败', err));
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,212 @@
+:root {
+    --primary: #6366f1;
+    --primary-glow: rgba(99, 102, 241, 0.5);
+    --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+    --glass: rgba(255, 255, 255, 0.08);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: 'Outfit', 'Noto Sans SC', sans-serif;
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text);
+    overflow-x: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    max-width: 500px; /* Mobile focused */
+    margin: 0 auto;
+    width: 100%;
+    position: relative;
+    padding-bottom: 80px; /* Tab bar height */
+}
+
+/* Header */
+header {
+    padding: 20px;
+    z-index: 10;
+}
+
+.status-bar-spacer {
+    height: env(safe-area-inset-top);
+}
+
+nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.logo span {
+    color: var(--primary);
+    text-shadow: 0 0 20px var(--primary-glow);
+}
+
+.menu-icon {
+    width: 24px;
+    height: 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.bar {
+    height: 2px;
+    background: white;
+    border-radius: 2px;
+}
+
+/* Glass Card */
+.glass-card {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* Hero Section */
+.hero {
+    padding: 20px;
+    animation: fadeIn 0.8s ease-out;
+}
+
+.main-card {
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%);
+}
+
+h1 {
+    font-size: 2.2rem;
+    line-height: 1.2;
+    margin-bottom: 16px;
+    font-weight: 600;
+}
+
+p {
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.primary-btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 16px 28px;
+    border-radius: 16px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 15px var(--primary-glow);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    width: fit-content;
+}
+
+.primary-btn:active {
+    transform: scale(0.95);
+    filter: brightness(1.1);
+}
+
+/* Features */
+.features {
+    padding: 0 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.feature-item {
+    text-align: center;
+    padding: 20px 10px;
+}
+
+.feature-item .icon {
+    font-size: 2rem;
+    margin-bottom: 12px;
+}
+
+.feature-item h3 {
+    font-size: 1rem;
+    margin-bottom: 8px;
+}
+
+.feature-item p {
+    font-size: 0.85rem;
+    margin-bottom: 0;
+}
+
+/* Tab Bar */
+.tab-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(70px + env(safe-area-inset-bottom));
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--glass-border);
+    display: flex;
+    justify-content: space-around;
+    padding-top: 10px;
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 100;
+}
+
+.tab-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    gap: 4px;
+}
+
+.tab-item.active {
+    color: var(--primary);
+}
+
+.tab-icon {
+    font-size: 1.2rem;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* iPhone Notch Support */
+@supports (padding-top: env(safe-area-inset-top)) {
+    .app-container {
+        padding-top: env(safe-area-inset-top);
+    }
+}

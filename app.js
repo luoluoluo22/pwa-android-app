@@ -31,7 +31,7 @@ window.addEventListener('appinstalled', (evt) => {
 });
 
 // 全局配置：请确保此 IP 与您的电脑局域网 IP 一致
-const PC_SERVER_URL = 'http://192.168.1.5:3000';
+const PC_SERVER_URL = 'http://192.168.1.5:3001';
 
 // 文件传输逻辑
 const fileInput = document.getElementById('fileInput');

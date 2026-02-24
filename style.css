@@ -1,84 +1,39 @@
 :root {
     --primary: #6366f1;
-    --primary-glow: rgba(99, 102, 241, 0.4);
     --bg-dark: #0f172a;
-    --glass: rgba(255, 255, 255, 0.03);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --text-main: #f8fafc;
+    --chat-bg: #1e293b;
+    --text-white: #f8fafc;
     --text-dim: #94a3b8;
-    --accent: #10b981;
-}
-
-* {
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
 }
 
 body {
     margin: 0;
-    padding: 20px;
-    font-family: 'Outfit', 'Noto Sans SC', sans-serif;
+    padding: 0;
     background: var(--bg-dark);
-    background-image: radial-gradient(circle at 50% -20%, #1e293b, #0f172a);
-    color: var(--text-main);
-    min-height: 100vh;
+    font-family: 'Outfit', 'Noto Sans SC', sans-serif;
+    color: var(--text-white);
+    height: 100vh;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
 }
 
-.glass-container {
+.im-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 600px;
+    margin: 0 auto;
     width: 100%;
-    max-width: 500px;
-    background: var(--glass);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border);
-    border-radius: 32px;
-    padding: 24px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    position: relative;
-    overflow: hidden;
 }
 
-/* 版本指纹小字 */
-.deploy-stamp {
-    font-size: 10px;
-    color: var(--text-dim);
-    text-align: center;
-    letter-spacing: 1px;
-    opacity: 0.6;
-    margin-bottom: 20px;
-    font-family: 'Consolas', monospace;
-}
-
-.header {
+.im-header {
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(10px);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 30px;
-}
-
-.logo-area {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.logo {
-    font-size: 28px;
-}
-
-h1 {
-    font-size: 20px;
-    margin: 0;
-    font-weight: 600;
-}
-
-.status-indicator {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--text-dim);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .status-dot {
@@ -86,151 +41,141 @@ h1 {
     height: 8px;
     border-radius: 50%;
     background: #ef4444;
-    box-shadow: 0 0 10px #ef4444;
-    transition: 0.3s;
+    margin-right: 8px;
 }
 
-/* 主传送区 */
-.transfer-box {
-    background: rgba(0, 0, 0, 0.2);
-    border: 2px dashed var(--glass-border);
-    border-radius: 24px;
-    padding: 40px 20px;
-    text-align: center;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
-}
-
-.transfer-box:active {
-    transform: scale(0.98);
-}
-
-.upload-icon {
-    font-size: 40px;
-    margin-bottom: 12px;
-    filter: drop-shadow(0 0 10px var(--primary-glow));
-}
-
-.empty-hint p {
-    margin: 5px 0;
-    font-weight: 500;
-}
-
-.empty-hint span {
-    font-size: 12px;
-    color: var(--text-dim);
-}
-
-.send-trigger {
-    width: 100%;
-    margin-top: 20px;
-    padding: 16px;
-    border-radius: 16px;
-    border: none;
-    background: var(--primary);
-    color: white;
-    font-weight: 600;
+h1 {
     font-size: 16px;
-    cursor: pointer;
-    box-shadow: 0 4px 15px var(--primary-glow);
-    transition: 0.3s;
+    margin: 0;
 }
 
-.send-trigger:disabled {
-    background: #334155;
-    box-shadow: none;
-    opacity: 0.5;
-}
-
-/* 历史记录区 */
-.history-section {
-    margin-top: 40px;
-}
-
-.section-title {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 14px;
+.build-ver {
+    font-size: 10px;
     color: var(--text-dim);
-    margin-bottom: 15px;
+    font-family: monospace;
 }
 
-.text-btn {
-    background: none;
-    border: none;
-    color: var(--primary);
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.history-list {
+/* 聊天流内容区 */
+.chat-flow {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    max-height: 250px;
-    overflow-y: auto;
-    padding-right: 5px;
+    gap: 15px;
 }
 
-.history-item {
-    background: rgba(255, 255, 255, 0.03);
+.system-msg {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+}
+
+.bubble {
+    max-width: 80%;
     padding: 12px 16px;
-    border-radius: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    animation: slideUp 0.4s ease-out;
-}
-
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.item-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.item-icon {
-    font-size: 20px;
-}
-
-.item-name {
-    display: block;
+    border-radius: 20px;
     font-size: 14px;
-    max-width: 150px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.5;
+    position: relative;
+    word-break: break-all;
+    animation: fadeIn 0.3s ease-out;
 }
 
-.item-time {
+.bubble.sent {
+    align-self: flex-end;
+    background: var(--primary);
+    border-bottom-right-radius: 4px;
+}
+
+.bubble.received {
+    align-self: flex-start;
+    background: var(--chat-bg);
+    border-bottom-left-radius: 4px;
+}
+
+.file-bubble {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #334155;
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.file-icon {
+    font-size: 24px;
+}
+
+.file-name {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.file-size {
     font-size: 11px;
     color: var(--text-dim);
 }
 
-.item-status {
-    font-size: 12px;
-    color: var(--accent);
+/* 输入区 */
+.im-input-area {
+    padding: 15px 20px 30px;
+    background: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-/* 安装按钮 */
-.install-badge {
-    background: #1e293b;
-    border: 1px solid var(--glass-border);
+.action-btn {
+    background: none;
+    border: none;
+    font-size: 22px;
     color: var(--primary);
-    padding: 6px 12px;
-    border-radius: 99px;
-    font-size: 12px;
+    cursor: pointer;
+}
+
+#textInput {
+    flex: 1;
+    height: 45px;
+    border-radius: 25px;
+    border: none;
+    background: #0f172a;
+    color: white;
+    padding: 0 15px;
+    font-size: 14px;
+}
+
+.send-btn {
+    background: var(--primary);
+    border: none;
+    color: white;
+    padding: 0 18px;
+    height: 40px;
+    border-radius: 20px;
     font-weight: 600;
+    cursor: pointer;
+}
+
+.send-btn:disabled {
+    opacity: 0.3;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.copy-hint {
+    font-size: 10px;
+    color: #10b981;
+    margin-top: 5px;
+    display: block;
 }

@@ -65,12 +65,24 @@ async function updateStatus() {
 
             const data = await res.json();
             if (data.hasFile) {
-                // 收到电脑端传来的文件
+                // 收到电脑端传来的文件：支持从 Base64 转为 Blob 安全下载
+                const [header, base64Data] = data.fileData.split(',');
+                const mime = header.match(/:(.*?);/)[1];
+                const binary = atob(base64Data);
+                const array = [];
+                for (let i = 0; i < binary.length; i++) array.push(binary.charCodeAt(i));
+                const blob = new Blob([new Uint8Array(array)], { type: mime });
+                
+                const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
-                link.href = data.fileData;
+                link.href = url;
                 link.download = data.fileName;
                 link.click();
-                saveHistory({ name: data.fileName, type: 'download', status: '已接收 ↓' });
+                
+                // 释放内存
+                setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+                saveHistory({ name: data.fileName, type: mime.startsWith('image/') ? 'image' : 'file', status: '已接收 ↓' });
+                LogToScreen(`成功接收文件: ${data.fileName}`);
             }
         }
     } catch (e) {

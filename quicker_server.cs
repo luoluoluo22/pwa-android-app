@@ -53,7 +53,11 @@ public class PCFileServer {
 
                 // --- 1. Header (QR) ---
                 _currentIp = GetSmartIPAddress();
-                var headerGrid = new Grid { Background = new SolidColorBrush(Color.FromArgb(50, 0, 0, 0)), Padding = new Thickness(15) };
+                var headerBorder = new Border { 
+                    Background = new SolidColorBrush(Color.FromArgb(50, 0, 0, 0)), 
+                    Padding = new Thickness(15) 
+                };
+                var headerGrid = new Grid();
                 headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
@@ -74,7 +78,8 @@ public class PCFileServer {
 
                 Grid.SetColumn(qrImg, 0); headerGrid.Children.Add(qrImg);
                 Grid.SetColumn(infoStack, 1); headerGrid.Children.Add(infoStack);
-                Grid.SetRow(headerGrid, 0); mainGrid.Children.Add(headerGrid);
+                headerBorder.Child = headerGrid;
+                Grid.SetRow(headerBorder, 0); mainGrid.Children.Add(headerBorder);
 
                 // --- 2. Chat List (Bubbles) ---
                 var scrollViewer = new ScrollViewer { Padding = new Thickness(10), VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -100,6 +105,12 @@ public class PCFileServer {
                 };
                 btnSend.Click += (s, e) => {
                     if (!string.IsNullOrEmpty(txtBox.Text)) {
+                        SendText(txtBox.Text);
+                        txtBox.Clear();
+                    }
+                };
+                txtBox.KeyDown += (s, e) => {
+                    if (e.Key == System.Windows.Input.Key.Enter && !string.IsNullOrEmpty(txtBox.Text)) {
                         SendText(txtBox.Text);
                         txtBox.Clear();
                     }
@@ -136,6 +147,11 @@ public class PCFileServer {
                 Background = isMe ? new SolidColorBrush(Color.FromRgb(99, 102, 241)) : new SolidColorBrush(Color.FromRgb(45, 55, 72)),
                 Icon = isMe ? "👨" : "📱"
             });
+            // 自动滚动到底部
+            if (VisualTreeHelper.GetChildrenCount(_chatList.Parent as ScrollViewer) > 0) {
+                var scrollViewer = _chatList.Parent as ScrollViewer;
+                scrollViewer.ScrollToEnd();
+            }
         });
     }
 

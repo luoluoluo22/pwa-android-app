@@ -92,8 +92,20 @@ public class PCFileServer {
 
                 // --- 3. Input & Actions ---
                 var inputArea = new Grid { Margin = new Thickness(15), Height = 50 };
-                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // + Button
+                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // TextBox
+                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Send Button
+
+                var btnAdd = new Button { 
+                    Content = "➕", Width = 40, Height = 40, FontSize = 20, Margin = new Thickness(0,0,10,0),
+                    Background = new SolidColorBrush(Color.FromRgb(45, 55, 72)), Foreground = Brushes.White, BorderThickness = new Thickness(0)
+                };
+                btnAdd.Click += (s, e) => {
+                    var dialog = new Microsoft.Win32.OpenFileDialog();
+                    if (dialog.ShowDialog() == true) {
+                        SendFile(dialog.FileName);
+                    }
+                };
 
                 var txtBox = new TextBox { 
                     FontSize = 14, VerticalContentAlignment = VerticalAlignment.Center, Padding = new Thickness(10,0,10,0),
@@ -103,6 +115,7 @@ public class PCFileServer {
                     Content = "发送", Width = 80, Margin = new Thickness(10,0,0,0),
                     Background = new SolidColorBrush(Color.FromRgb(99, 102, 241)), Foreground = Brushes.White, BorderThickness = new Thickness(0)
                 };
+                
                 btnSend.Click += (s, e) => {
                     if (!string.IsNullOrEmpty(txtBox.Text)) {
                         SendText(txtBox.Text);
@@ -116,8 +129,9 @@ public class PCFileServer {
                     }
                 };
                 
-                Grid.SetColumn(txtBox, 0); inputArea.Children.Add(txtBox);
-                Grid.SetColumn(btnSend, 1); inputArea.Children.Add(btnSend);
+                Grid.SetColumn(btnAdd, 0); inputArea.Children.Add(btnAdd);
+                Grid.SetColumn(txtBox, 1); inputArea.Children.Add(txtBox);
+                Grid.SetColumn(btnSend, 2); inputArea.Children.Add(btnSend);
                 Grid.SetRow(inputArea, 2); mainGrid.Children.Add(inputArea);
 
                 // --- Drag and Drop ---
@@ -175,7 +189,12 @@ public class PCFileServer {
     }
 
     private static void SendText(string text) {
-        string json = "{\"hasFile\": true, \"type\": \"text\", \"content\": \"" + text.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n") + "\"}";
+        string escapedContent = text.Replace("\\", "\\\\")
+                                     .Replace("\"", "\\\"")
+                                     .Replace("\n", "\\n")
+                                     .Replace("\r", "\\r")
+                                     .Replace("\t", "\\t");
+        string json = "{\"hasFile\": true, \"type\": \"text\", \"content\": \"" + escapedContent + "\"}";
         lock (_outgoingQueue) { _outgoingQueue.Add(json); }
         LogMessage(text, true);
     }

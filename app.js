@@ -115,6 +115,13 @@ function renderMessage(msg) {
     if (msg.type === 'text') {
         div.innerHTML = msg.content + (msg.role === 'ai' ? '<br><small style="color: #10b981; font-size: 10px;">点击拷贝</small>' : '');
         div.onclick = () => copyText(msg.content);
+    } else if (msg.type === 'image' || (msg.data && msg.data.startsWith('data:image'))) {
+        div.innerHTML = `
+            <div class="image-bubble">
+                <img src="${msg.url || msg.data}" style="max-width: 100%; border-radius: 8px; display: block;">
+                <span class="file-size" style="display:block; font-size:10px; opacity:0.7; margin-top:5px;">图片已接收</span>
+            </div>
+        `;
     } else {
         div.innerHTML = `
             <div class="file-bubble">
@@ -147,11 +154,16 @@ async function poll() {
                 if (data.type === 'text') {
                     addMessage({ role: 'ai', type: 'text', content: data.content });
                 } else {
-                    const link = document.createElement('a');
-                    link.href = data.fileData;
-                    link.download = data.fileName;
-                    link.click();
-                    addMessage({ role: 'ai', type: 'file', name: data.fileName, status: '已接收' });
+                    const isImg = data.fileData.includes('image/');
+                    if (isImg) {
+                        addMessage({ role: 'ai', type: 'image', data: data.fileData, name: data.fileName });
+                    } else {
+                        const link = document.createElement('a');
+                        link.href = data.fileData;
+                        link.download = data.fileName;
+                        link.click();
+                        addMessage({ role: 'ai', type: 'file', name: data.fileName, status: '已接收' });
+                    }
                 }
             }
         }

@@ -38,6 +38,10 @@ public class PCFileServer {
     private static string _historyPath = System.IO.Path.Combine(_baseDir, "chat_history.v1.txt");
     private static string _configPath = System.IO.Path.Combine(_baseDir, "config.v1.txt");
     private static string _saveDirectory = _baseDir;
+    
+    // --- Quicker Push API Config ---
+    private static string _quickerPushKey = ""; // 用户在 Quicker 设置中获取的推送密钥
+    private static bool _usePushApi = false;
 
     public class ChatMessage {
         public string Content { get; set; }
@@ -62,10 +66,12 @@ public class PCFileServer {
                 
                 // 加载配置
                 if (File.Exists(_configPath)) {
-                    string savedPath = File.ReadAllText(_configPath).Trim();
-                    if (!string.IsNullOrEmpty(savedPath) && Directory.Exists(savedPath)) {
-                        _saveDirectory = savedPath;
+                    string[] configLines = File.ReadAllLines(_configPath);
+                    if (configLines.Length > 0 && Directory.Exists(configLines[0].Trim())) {
+                        _saveDirectory = configLines[0].Trim();
                     }
+                    if (configLines.Length > 1) _quickerPushKey = configLines[1].Trim();
+                    if (configLines.Length > 2) _usePushApi = configLines[2].Trim() == "true";
                 }
                 
                 LoadHistory(); // 启动时加载历史
@@ -107,7 +113,7 @@ public class PCFileServer {
                 };
                 qrImg.MouseDown += (s, e) => {
                     var zoomWin = new Window {
-                        Title = "扫码配对", Width = 380, Height = 520,
+                        Title = "扫码配对", Width = 380, Height = 550,
                         WindowStartupLocation = WindowStartupLocation.CenterScreen,
                         Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
                         ResizeMode = ResizeMode.NoResize,
@@ -115,6 +121,10 @@ public class PCFileServer {
                     };
                     var zoomStack = new StackPanel { Margin = new Thickness(25) };
                     var bigQr = new Image { Width = 250, Height = 250, Source = GetQRImage(_currentIp), Margin = new Thickness(0,0,0,20) };
+                    
+                    if (_cloudMode) {
+                        bigQr.Source = GetQRImage("cloud_" + _cloudChannel); // 云端模式专用二维码
+                    }
                     var hintText = new TextBlock { 
                         Text = "⚠️ 微信扫码暂不支持直接打开\n请使用手机自带相机、支付宝或QQ扫码", 
                         Foreground = Brushes.Gold, FontSize = 13, FontWeight = FontWeights.Bold,
@@ -222,12 +232,25 @@ public class PCFileServer {
                         if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
                             _saveDirectory = dialog.SelectedPath;
                             txtPath.Text = _saveDirectory;
-                            try { File.WriteAllText(_configPath, _saveDirectory); } catch { }
+                            SaveAllConfig();
                         }
                     };
                     Grid.SetColumn(txtPath, 0); pathGrid.Children.Add(txtPath);
                     Grid.SetColumn(btnChoose, 1); pathGrid.Children.Add(btnChoose);
                     stack.Children.Add(pathGrid);
+
+                    stack.Children.Add(new TextBlock { Text = "\n⚡ Quicker 推送模式 (Web -> PC 极速直达)", Foreground = Brushes.White, Margin = new Thickness(0,10,0,10), FontWeight = FontWeights.Bold });
+                    var pushToggle = new CheckBox { Content = "启用推送 API (解决 Web 到 PC 的连接问题)", IsChecked = _usePushApi, Foreground = Brushes.White, Margin = new Thickness(0,0,0,10) };
+                    var pushStack = new StackPanel { Margin = new Thickness(0,0,0,10), Visibility = _usePushApi ? Visibility.Visible : Visibility.Collapsed };
+                    pushStack.Children.Add(new TextBlock { Text = "推送密钥 (Push Key):", Foreground = Brushes.Gray, FontSize = 11 });
+                    var txtPushKey = new TextBox { Text = _quickerPushKey, Margin = new Thickness(0,2,0,5), Padding = new Thickness(3), Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)), Foreground = Brushes.White };
+                    
+                    pushToggle.Checked += (s2, e2) => { _usePushApi = true; pushStack.Visibility = Visibility.Visible; SaveAllConfig(); };
+                    pushToggle.Unchecked += (s2, e2) => { _usePushApi = false; pushStack.Visibility = Visibility.Collapsed; SaveAllConfig(); };
+                    txtPushKey.TextChanged += (s2, e2) => { _quickerPushKey = txtPushKey.Text; SaveAllConfig(); };
+                    
+                    stack.Children.Add(pushToggle);
+                    stack.Children.Add(pushStack);
 
                     stack.Children.Add(new TextBlock { Text = "\n🌐 检测到的局域网 IP (点击可切换)", Foreground = Brushes.White, Margin = new Thickness(0,10,0,10), FontWeight = FontWeights.Bold });
                     var ips = NetworkInterface.GetAllNetworkInterfaces()
@@ -553,6 +576,9 @@ public class PCFileServer {
 
     private static BitmapImage GetQRImage(string ip) {
         string url = $"{_webAppUrl.TrimEnd('/')}/?ip={ip}";
+        if (_usePushApi) {
+            url += $"&pushKey={_quickerPushKey}";
+        }
         return new BitmapImage(new Uri($"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={WebUtility.UrlEncode(url)}"));
     }
 
@@ -560,9 +586,10 @@ public class PCFileServer {
         string escaped = text.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
         long id = Interlocked.Increment(ref _msgIdCounter);
         string json = "{\"hasFile\": true, \"id\": " + id + ", \"type\": \"text\", \"content\": \"" + escaped + "\"}";
+        
         lock (_broadcastBuffer) { 
             _broadcastBuffer.Add(new BroadcastMessage { Id = id, Json = json }); 
-            if (_broadcastBuffer.Count > 100) _broadcastBuffer.RemoveAt(0); // 保持缓冲区在合理大小
+            if (_broadcastBuffer.Count > 100) _broadcastBuffer.RemoveAt(0); 
         }
         LogMessage(text, true);
     }
@@ -675,6 +702,13 @@ public class PCFileServer {
                 byte[] buffer = Encoding.UTF8.GetBytes(json); res.OutputStream.Write(buffer, 0, buffer.Length);
             }
         } catch { } finally { try { res.Close(); } catch { } }
+    }
+
+    private static void SaveAllConfig() {
+        try {
+            string[] lines = { _saveDirectory, _quickerPushKey, _usePushApi.ToString().ToLower() };
+            File.WriteAllLines(_configPath, lines);
+        } catch { }
     }
 
     private static void StopServer() {

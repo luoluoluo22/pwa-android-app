@@ -34,7 +34,10 @@ public class PCFileServer {
     private static ObservableCollection<ChatMessage> _messages = new ObservableCollection<ChatMessage>();
     private static string _currentIp;
     private static string _webAppUrl = "https://luoluoluo22.github.io/pwa-android-app/"; // Web 端托管地址
-    private static string _historyPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "极速传书", "chat_history.v1.txt");
+    private static string _baseDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "文件传输");
+    private static string _historyPath = System.IO.Path.Combine(_baseDir, "chat_history.v1.txt");
+    private static string _configPath = System.IO.Path.Combine(_baseDir, "config.v1.txt");
+    private static string _saveDirectory = _baseDir;
 
     public class ChatMessage {
         public string Content { get; set; }
@@ -53,10 +56,22 @@ public class PCFileServer {
             try {
                 if (_window != null) { try { _window.Close(); } catch { } }
                 StopServer();
+                
+                // 确保目录存在
+                if (!Directory.Exists(_baseDir)) Directory.CreateDirectory(_baseDir);
+                
+                // 加载配置
+                if (File.Exists(_configPath)) {
+                    string savedPath = File.ReadAllText(_configPath).Trim();
+                    if (!string.IsNullOrEmpty(savedPath) && Directory.Exists(savedPath)) {
+                        _saveDirectory = savedPath;
+                    }
+                }
+                
                 LoadHistory(); // 启动时加载历史
 
                 _window = new Window {
-                    Title = "极速传书 - 电脑工作台",
+                    Title = "文件传输 - 电脑工作台",
                     Width = 550, Height = 800, Topmost = false,
                     WindowStartupLocation = WindowStartupLocation.CenterScreen,
                     Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)), // 对应 var(--bg-dark) #0f172a
@@ -179,7 +194,28 @@ public class PCFileServer {
                         if (File.Exists(_historyPath)) File.Delete(_historyPath);
                     }
                 };
-                Grid.SetColumn(btnClear, 2); headerGrid.Children.Add(btnClear);
+
+                var btnSettings = new Button { 
+                    Content = "⚙️", Width = 35, Height = 35, Margin = new Thickness(5,0,0,0),
+                    Background = Brushes.Transparent, Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)), 
+                    BorderThickness = new Thickness(0), Cursor = System.Windows.Input.Cursors.Hand,
+                    ToolTip = "设置保存位置", VerticalAlignment = VerticalAlignment.Center
+                };
+                btnSettings.Click += (s, e) => {
+                    var dialog = new System.Windows.Forms.FolderBrowserDialog();
+                    dialog.Description = "选择文件保存目录";
+                    dialog.SelectedPath = _saveDirectory;
+                    if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
+                        _saveDirectory = dialog.SelectedPath;
+                        try { File.WriteAllText(_configPath, _saveDirectory); } catch { }
+                        MessageBox.Show("保存位置已更新为：\n" + _saveDirectory);
+                    }
+                };
+
+                var actionStack = new StackPanel { Orientation = Orientation.Horizontal };
+                actionStack.Children.Add(btnSettings);
+                actionStack.Children.Add(btnClear);
+                Grid.SetColumn(actionStack, 2); headerGrid.Children.Add(actionStack);
                 
                 // 定时检查连接状态
                 var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
@@ -285,18 +321,23 @@ public class PCFileServer {
             if (!string.IsNullOrEmpty(filePath)) {
                 string ext = filePath.ToLower();
                 if (ext.EndsWith(".jpg") || ext.EndsWith(".png") || ext.EndsWith(".jpeg")) {
-                    try {
-                        var bi = new BitmapImage(); bi.BeginInit(); bi.UriSource = new Uri(filePath); bi.DecodePixelWidth = 200; bi.EndInit();
-                        msg.ImageSource = bi; msg.ImageVisibility = Visibility.Visible;
-                    } catch { }
-                } else if (ext.EndsWith(".mp4") || ext.EndsWith(".mov") || ext.EndsWith(".avi")) {
-                    msg.VideoVisibility = Visibility.Visible;
-                }
+            try {
+                var bi = new BitmapImage(); bi.BeginInit(); bi.UriSource = new Uri(filePath); bi.DecodePixelWidth = 200; bi.EndInit();
+                msg.ImageSource = bi; msg.ImageVisibility = Visibility.Visible;
+            } catch { }
+        } else if (ext.EndsWith(".mp4") || ext.EndsWith(".mov") || ext.EndsWith(".avi")) {
+            msg.VideoVisibility = Visibility.Visible;
+        }
             }
             _messages.Add(msg);
             
             // 实时持久化 (仅在非加载模式下)
-            if (time == null) PersistentMessage(content, isMe, filePath, useTime);
+            if (time == null) {
+                try {
+                    if (!Directory.Exists(_baseDir)) Directory.CreateDirectory(_baseDir);
+                    PersistentMessage(content, isMe, filePath, useTime);
+                } catch { }
+            }
 
             // 自动滚动
             if (_mainScrollViewer != null) {
@@ -319,9 +360,9 @@ public class PCFileServer {
 
     private static void LoadHistory() {
         _messages.Clear();
-        if (!File.Exists(_historyPath)) return;
         try {
-            string[] lines = File.ReadAllLines(_historyPath);
+            if (File.Exists(_historyPath)) {
+                string[] lines = File.ReadAllLines(_historyPath);
             foreach (var line in lines) {
                 var parts = line.Split('|');
                 if (parts.Length < 4) continue;
@@ -541,11 +582,9 @@ public class PCFileServer {
                         Application.Current.Dispatcher.Invoke(() => Clipboard.SetText(t));
                     }
                 } else {
-                    string fn = Encoding.UTF8.GetString(Convert.FromBase64String(req.Headers["File-Name"]));
-                    string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "手机传来");
-                    if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-                    string path = Path.Combine(folder, fn);
-                    using (var fs = new FileStream(path, FileMode.Create)) { await req.InputStream.CopyToAsync(fs); }
+                    string fn = WebUtility.UrlDecode(Encoding.UTF8.GetString(Convert.FromBase64String(req.Headers["File-Name"])));
+                    string path = System.IO.Path.Combine(_saveDirectory, fn);
+                    using (var fs = File.Create(path)) { await req.InputStream.CopyToAsync(fs); }
                     LogMessage(fn, false, path);
                     if (fn.ToLower().EndsWith(".jpg") || fn.ToLower().EndsWith(".png")) {
                         Application.Current.Dispatcher.Invoke(() => { try { Clipboard.SetImage(new BitmapImage(new Uri(path))); } catch { } });

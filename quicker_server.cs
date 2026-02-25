@@ -68,50 +68,83 @@ public class PCFileServer {
                 // --- Header ---
                 _currentIp = GetSmartIPAddress();
                 var topBorder = new Border { 
-                    Background = new SolidColorBrush(Color.FromArgb(230, 15, 23, 42)), // 对应 rgba(15, 23, 42, 0.9)
-                    Padding = new Thickness(15), 
+                    Background = new SolidColorBrush(Color.FromArgb(230, 15, 23, 42)), 
+                    Padding = new Thickness(15, 12, 15, 12), 
                     BorderThickness = new Thickness(0,0,0,1), 
-                    BorderBrush = new SolidColorBrush(Color.FromArgb(25, 255, 255, 255)) // 对应 rgba(255, 255, 255, 0.1)
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(25, 255, 255, 255)) 
                 };
                 var headerGrid = new Grid();
-                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // QR Column
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Copy Button Column
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Clear Button Column
 
-                var qrImg = new Image { Width = 80, Height = 80, Source = GetQRImage(_currentIp), Cursor = System.Windows.Input.Cursors.Hand };
+                // QR Section (Left)
+                var qrStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+                var qrImg = new Image { 
+                    Width = 65, Height = 65, 
+                    Source = GetQRImage(_currentIp), 
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    ToolTip = "点击放大二维码"
+                };
+                qrImg.MouseDown += (s, e) => {
+                    var zoomWin = new Window {
+                        Title = "扫码配对", Width = 350, Height = 450,
+                        WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                        Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
+                        ResizeMode = ResizeMode.NoResize,
+                        Topmost = true
+                    };
+                    var zoomStack = new StackPanel { Margin = new Thickness(25) };
+                    var bigQr = new Image { Width = 250, Height = 250, Source = GetQRImage(_currentIp), Margin = new Thickness(0,0,0,20) };
+                    var hintText = new TextBlock { 
+                        Text = "⚠️ 微信扫码暂不支持直接打开\n请使用手机自带相机、支付宝或QQ扫码", 
+                        Foreground = Brushes.Gold, FontSize = 13, FontWeight = FontWeights.Bold,
+                        TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap 
+                    };
+                    var linkText = new TextBlock { 
+                        Text = $"{_webAppUrl.TrimEnd('/')}/?ip={_currentIp}", 
+                        Foreground = Brushes.Gray, FontSize = 10, Margin = new Thickness(0,15,0,0), 
+                        TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap 
+                    };
+                    zoomStack.Children.Add(bigQr);
+                    zoomStack.Children.Add(hintText);
+                    zoomStack.Children.Add(linkText);
+                    zoomWin.Content = zoomStack;
+                    zoomWin.ShowDialog();
+                };
+                var qrLabel = new TextBlock { 
+                    Text = "手机扫码", Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)), 
+                    FontSize = 10, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0,5,0,0) 
+                };
+                qrStack.Children.Add(qrImg);
+                qrStack.Children.Add(qrLabel);
 
-                var infoStack = new StackPanel { Margin = new Thickness(15, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-                infoStack.Children.Add(new TextBlock { Text = "📱 扫描二维码或点击下方按钮复制链接", Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)), FontSize = 11, Margin = new Thickness(0,0,0,5) }); // var(--text-dim)
-                
+                // Copy Button Section (Center)
                 var btnCopyLink = new Button { 
-                    Content = $"🔗 复制配对链接 ({_currentIp})", 
-                    FontSize = 13, 
-                    Foreground = new SolidColorBrush(Color.FromRgb(99, 102, 241)), // var(--primary)
+                    Content = "扫码失败？复制链接给手机", 
+                    FontSize = 12, 
+                    Foreground = new SolidColorBrush(Color.FromRgb(99, 102, 241)),
                     FontWeight = FontWeights.SemiBold,
-                    Background = new SolidColorBrush(Color.FromArgb(51, 99, 102, 241)), // rgba(99, 102, 241, 0.2)
+                    Background = new SolidColorBrush(Color.FromArgb(51, 99, 102, 241)),
                     BorderThickness = new Thickness(1), 
                     BorderBrush = new SolidColorBrush(Color.FromRgb(99, 102, 241)),
-                    Padding = new Thickness(12,6,12,6),
+                    Padding = new Thickness(12,8,12,8),
+                    Margin = new Thickness(15, 0, 10, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
                     Cursor = System.Windows.Input.Cursors.Hand,
                     Template = CreateFlatButtonTemplate(new CornerRadius(8))
                 };
-                
-                Action copyAction = () => {
-                     string fullUrl = $"{_webAppUrl.TrimEnd('/')}/?ip={_currentIp}";
-                     Clipboard.SetText(fullUrl); 
-                     MessageBox.Show($"配对链接已复制！\n\n【注意】微信扫码可能无法直接打开。请在手机浏览器（如 Chrome, Safari, 自带浏览器）中粘贴并访问：\n{fullUrl}", "提示");
-                 };
-
-                btnCopyLink.Click += (s, e) => copyAction();
-                qrImg.MouseDown += (s, e) => copyAction();
-                
-                infoStack.Children.Add(btnCopyLink);
+                btnCopyLink.Click += (s, e) => {
+                    string fullUrl = $"{_webAppUrl.TrimEnd('/')}/?ip={_currentIp}";
+                    Clipboard.SetText(fullUrl); 
+                    MessageBox.Show($"配对链接已复制！\n\n请在手机浏览器中访问：\n{fullUrl}", "提示");
+                };
 
                 var btnClear = new Button { 
-                    Content = "🗑️", Width = 35, Height = 35, Margin = new Thickness(10,0,0,0),
+                    Content = "🗑️", Width = 35, Height = 35, Margin = new Thickness(5,0,0,0),
                     Background = Brushes.Transparent, Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)), 
                     BorderThickness = new Thickness(0), Cursor = System.Windows.Input.Cursors.Hand,
-                    ToolTip = "清空记录"
+                    ToolTip = "清空记录", VerticalAlignment = VerticalAlignment.Center
                 };
                 btnClear.Click += (s, e) => { 
                     if(MessageBox.Show("确定要清空所有记录吗？", "提示", MessageBoxButton.YesNo) == MessageBoxResult.Yes) {
@@ -120,8 +153,8 @@ public class PCFileServer {
                     }
                 };
 
-                Grid.SetColumn(qrImg, 0); headerGrid.Children.Add(qrImg);
-                Grid.SetColumn(infoStack, 1); headerGrid.Children.Add(infoStack);
+                Grid.SetColumn(qrStack, 0); headerGrid.Children.Add(qrStack);
+                Grid.SetColumn(btnCopyLink, 1); headerGrid.Children.Add(btnCopyLink);
                 Grid.SetColumn(btnClear, 2); headerGrid.Children.Add(btnClear);
                 topBorder.Child = headerGrid;
                 Grid.SetRow(topBorder, 0); mainGrid.Children.Add(topBorder);

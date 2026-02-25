@@ -1,59 +1,67 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <title>传输助手 - 极速互传</title>
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#0f172a" />
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.json" />
     <link
-        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Sans+SC:wght@300;400;700&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-</head>
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Sans+SC:wght@300;400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
 
-<body>
+  <body>
     <div class="im-container">
-        <!-- 顶部状态 (校对 & 连接) -->
-        <div class="im-header">
-            <div class="header-left">
-                <span class="status-dot"></span>
-                <h1 id="connection-state">正在寻找电脑...</h1>
-                <button id="scanBtn" class="scan-entry">📷 扫码配对</button>
-            </div>
-            <div class="header-right">
-                <button id="clearMsgs" class="icon-btn" title="清空记录">🗑️</button>
-                <div class="build-ver">Pro v1.1</div>
-            </div>
+      <!-- 顶部状态 (校对 & 连接) -->
+      <div class="im-header">
+        <div class="header-left">
+          <span class="status-dot"></span>
+          <h1 id="connection-state">正在寻找电脑...</h1>
+          <button id="scanBtn" class="scan-entry">📷 扫码配对</button>
         </div>
-
-        <!-- 扫码预览容器 (默认隐藏) -->
-        <div id="reader" style="width: 100%; display: none;"></div>
-
-        <!-- 聊天流 -->
-        <div class="chat-flow" id="chatFlow">
-            <div class="system-msg">欢迎使用扫码配对。已保存的 IP: <span id="saved-ip">-</span></div>
+        <div class="header-right">
+          <button id="clearMsgs" class="icon-btn" title="清空记录">🗑️</button>
+          <div class="build-ver">Pro v1.1</div>
         </div>
+      </div>
 
-        <!-- 底部输入区 -->
-        <div class="im-input-area">
-            <button class="action-btn" id="attachBtn">➕</button>
-            <input type="text" id="textInput" placeholder="输入消息或粘贴文字..." autocomplete="off">
-            <button class="send-btn" id="sendBtn" disabled>发送</button>
-            <input type="file" id="fileInput" hidden>
+      <!-- 扫码预览容器 (默认隐藏) -->
+      <div id="reader" style="width: 100%; display: none"></div>
+
+      <!-- 聊天流 -->
+      <div class="chat-flow" id="chatFlow">
+        <div class="system-msg">
+          欢迎使用扫码配对。已保存的 IP: <span id="saved-ip">-</span>
         </div>
+      </div>
+
+      <!-- 底部输入区 -->
+      <div class="im-input-area">
+        <button class="action-btn" id="attachBtn">➕</button>
+        <input
+          type="text"
+          id="textInput"
+          placeholder="输入消息或粘贴文字..."
+          autocomplete="off"
+        />
+        <button class="send-btn" id="sendBtn" disabled>发送</button>
+        <input type="file" id="fileInput" hidden />
+      </div>
     </div>
 
     <!-- 图片放大查看器 -->
-    <div id="imageModal" class="modal">
-        <span class="close">&times;</span>
-        <img class="modal-content" id="imgFull">
+    <div id="imageModal" class="modal" style="display: none">
+      <span class="close">&times;</span>
+      <img class="modal-content" id="imgFull" />
     </div>
 
     <script src="app.js"></script>
-</body>
-
+  </body>
 </html>

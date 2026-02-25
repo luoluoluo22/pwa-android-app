@@ -152,8 +152,60 @@ function applyNewIp(ip) {
 
 // --- 核心交互 ---
 window.copyText = (text) => {
-  navigator.clipboard.writeText(text)
+    if (!text) return;
+    
+    // 优先使用现代 Clipboard API
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast("已复制到剪贴板");
+        }).catch(err => {
+            fallbackCopyText(text);
+        });
+    } else {
+        fallbackCopyText(text);
+    }
+};
+
+function fallbackCopyText(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    textArea.style.top = "0";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        showToast("已复制到剪贴板");
+    } catch (err) {
+        alert('拷贝失败，请手动长按复制');
+    }
+    document.body.removeChild(textArea);
 }
+
+function showToast(msg) {
+    const toast = document.createElement('div');
+    toast.className = 'toast-msg';
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => document.body.removeChild(toast), 300);
+    }, 2000);
+}
+
+// 解决 iOS 键盘弹出遮挡输入框问题
+if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    const inputArea = document.querySelector('.im-input-area');
+    document.getElementById('textInput').addEventListener('focus', () => {
+        setTimeout(() => {
+            window.scrollTo(0, document.body.scrollHeight);
+            inputArea.scrollIntoView(false);
+        }, 300);
+    });
+}}
 
 async function poll() {
   try {

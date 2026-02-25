@@ -20,6 +20,7 @@ public class PCFileServer {
     private static List<string> _outgoingQueue = new List<string>();
     private static Window _window;
     private static ItemsControl _chatList;
+    private static ScrollViewer _mainScrollViewer;
     private static ObservableCollection<ChatMessage> _messages = new ObservableCollection<ChatMessage>();
     private static string _currentIp;
     private static string _webAppUrl = "https://luoluoluo22.github.io/pwa-android-app/"; // Web 端托管地址
@@ -32,6 +33,7 @@ public class PCFileServer {
         public SolidColorBrush Background { get; set; }
         public Visibility ImageVisibility { get; set; } = Visibility.Collapsed;
         public BitmapImage ImageSource { get; set; }
+        public Visibility VideoVisibility { get; set; } = Visibility.Collapsed;
         public string FilePath { get; set; }
         public bool IsMe { get; set; }
     }
@@ -110,13 +112,16 @@ public class PCFileServer {
                 Grid.SetRow(topBorder, 0); mainGrid.Children.Add(topBorder);
 
                 // --- Chat List ---
-                var scrollViewer = new ScrollViewer { Padding = new Thickness(10), VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+                _mainScrollViewer = new ScrollViewer { 
+                    Padding = new Thickness(10), 
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto 
+                };
                 _chatList = new ItemsControl {
                     ItemsSource = _messages,
                     ItemTemplate = CreateMessageTemplate()
                 };
-                scrollViewer.Content = _chatList;
-                Grid.SetRow(scrollViewer, 1); mainGrid.Children.Add(scrollViewer);
+                _mainScrollViewer.Content = _chatList;
+                Grid.SetRow(_mainScrollViewer, 1); mainGrid.Children.Add(_mainScrollViewer);
 
                 // --- Input ---
                 var inputArea = new Grid { Margin = new Thickness(15), Height = 50 };
@@ -164,8 +169,7 @@ public class PCFileServer {
                 StartServer(3001);
                 // 自动滚动
                 Application.Current.Dispatcher.BeginInvoke(new Action(()=> {
-                   var scroll = FindVisualChild<ScrollViewer>(scrollViewer);
-                   if (scroll != null) scroll.ScrollToEnd();
+                   if (_mainScrollViewer != null) _mainScrollViewer.ScrollToEnd();
                 }), System.Windows.Threading.DispatcherPriority.Background);
 
             } catch (Exception ex) { MessageBox.Show(ex.Message); }
@@ -183,19 +187,27 @@ public class PCFileServer {
                 Background = isMe ? new SolidColorBrush(Color.FromRgb(99, 102, 241)) : new SolidColorBrush(Color.FromRgb(45, 55, 72)),
                 FilePath = filePath
             };
-            if (!string.IsNullOrEmpty(filePath) && (filePath.ToLower().EndsWith(".jpg") || filePath.ToLower().EndsWith(".png") || filePath.ToLower().EndsWith(".jpeg"))) {
-                try {
-                    var bi = new BitmapImage(); bi.BeginInit(); bi.UriSource = new Uri(filePath); bi.DecodePixelWidth = 200; bi.EndInit();
-                    msg.ImageSource = bi; msg.ImageVisibility = Visibility.Visible;
-                } catch { }
+            if (!string.IsNullOrEmpty(filePath)) {
+                string ext = filePath.ToLower();
+                if (ext.EndsWith(".jpg") || ext.EndsWith(".png") || ext.EndsWith(".jpeg")) {
+                    try {
+                        var bi = new BitmapImage(); bi.BeginInit(); bi.UriSource = new Uri(filePath); bi.DecodePixelWidth = 200; bi.EndInit();
+                        msg.ImageSource = bi; msg.ImageVisibility = Visibility.Visible;
+                    } catch { }
+                } else if (ext.EndsWith(".mp4") || ext.EndsWith(".mov") || ext.EndsWith(".avi")) {
+                    msg.VideoVisibility = Visibility.Visible;
+                }
             }
             _messages.Add(msg);
             
             // 实时持久化 (仅在非加载模式下)
             if (time == null) PersistentMessage(content, isMe, filePath, useTime);
 
-            var scroll = FindVisualChild<ScrollViewer>(_chatList);
-            if (scroll != null) scroll.ScrollToEnd();
+            // 自动滚动
+            if (_mainScrollViewer != null) {
+                _mainScrollViewer.UpdateLayout();
+                _mainScrollViewer.ScrollToEnd();
+            }
         });
     }
 
@@ -250,25 +262,52 @@ public class PCFileServer {
         border.SetValue(Border.CursorProperty, System.Windows.Input.Cursors.Hand);
         border.AddHandler(Border.MouseLeftButtonDownEvent, new System.Windows.Input.MouseButtonEventHandler((s, e) => {
             var m = (s as Border).DataContext as ChatMessage;
-            if (m.ImageVisibility == Visibility.Visible && !string.IsNullOrEmpty(m.FilePath)) {
-                var win = new Window { Title = "预览", Width = 800, Height = 600, WindowStartupLocation = WindowStartupLocation.CenterScreen };
-                win.Content = new Image { Source = new BitmapImage(new Uri(m.FilePath)), Stretch = Stretch.Uniform }; win.Show();
+            if (!string.IsNullOrEmpty(m.FilePath)) {
+                if (m.ImageVisibility == Visibility.Visible) {
+                    var win = new Window { Title = "预览", Width = 800, Height = 600, WindowStartupLocation = WindowStartupLocation.CenterScreen };
+                    win.Content = new Image { Source = new BitmapImage(new Uri(m.FilePath)), Stretch = Stretch.Uniform }; win.Show();
+                } else if (m.VideoVisibility == Visibility.Visible) {
+                    System.Diagnostics.Process.Start(m.FilePath);
+                }
             }
         }));
 
         var innerStack = new FrameworkElementFactory(typeof(StackPanel));
+        
+        // 图片预览
         var img = new FrameworkElementFactory(typeof(Image));
         img.SetBinding(Image.SourceProperty, new Binding("ImageSource"));
         img.SetBinding(Image.VisibilityProperty, new Binding("ImageVisibility"));
         img.SetValue(Image.MaxWidthProperty, 200.0);
         img.SetValue(Image.MarginProperty, new Thickness(0, 0, 0, 5));
+
+        // 视频预览 (使用图标代替，点击打开)
+        var videoGrid = new FrameworkElementFactory(typeof(Grid));
+        videoGrid.SetBinding(Grid.VisibilityProperty, new Binding("VideoVisibility"));
+        videoGrid.SetValue(Grid.MarginProperty, new Thickness(0, 0, 0, 5));
+        
+        var videoBorder = new FrameworkElementFactory(typeof(Border));
+        videoBorder.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.FromArgb(50, 0, 0, 0)));
+        videoBorder.SetValue(Border.CornerRadiusProperty, new CornerRadius(5));
+        videoBorder.SetValue(Border.PaddingProperty, new Thickness(10));
+        
+        var videoText = new FrameworkElementFactory(typeof(TextBlock));
+        videoText.SetValue(TextBlock.TextProperty, "🎬 点击播放视频");
+        videoText.SetValue(TextBlock.ForegroundProperty, Brushes.Gold);
+        videoText.SetValue(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        
+        videoBorder.AppendChild(videoText);
+        videoGrid.AppendChild(videoBorder);
+
         var txt = new FrameworkElementFactory(typeof(TextBlock));
         txt.SetBinding(TextBlock.TextProperty, new Binding("Content"));
         txt.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
         txt.SetValue(TextBlock.ForegroundProperty, Brushes.White);
         txt.SetValue(TextBlock.FontSizeProperty, 13.0);
 
-        innerStack.AppendChild(img); innerStack.AppendChild(txt);
+        innerStack.AppendChild(img); 
+        innerStack.AppendChild(videoGrid);
+        innerStack.AppendChild(txt);
         border.AppendChild(innerStack);
         var timeTxt = new FrameworkElementFactory(typeof(TextBlock));
         timeTxt.SetBinding(TextBlock.TextProperty, new Binding("Time"));

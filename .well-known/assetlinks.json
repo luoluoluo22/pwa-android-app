@@ -1,14 +1,12 @@
 [
-    {
-        "relation": [
-            "delegate_permission/common.handle_all_urls"
-        ],
-        "target": {
-            "namespace": "android_app",
-            "package_name": "io.github.luoluoluo22.twa",
-            "sha256_cert_fingerprints": [
-                "B9:95:FE:82:F1:25:E5:ED:53:9C:BB:22:DC:77:39:44:D3:F0:25:92:69:F7:62:E8:9A:C4:49:73:10:3F:8D:02"
-            ]
-        }
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.luoluoluo22.twa",
+      "sha256_cert_fingerprints": [
+        "C0:BB:AC:71:50:85:73:DF:CE:7A:73:AD:F6:2C:96:33:78:52:E7:FD:67:7B:CC:8E:5B:F0:6B:7A:FA:58:4F:05"
+      ]
     }
+  }
 ]

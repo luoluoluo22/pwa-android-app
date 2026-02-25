@@ -75,7 +75,17 @@ function renderMessage(msg) {
     div.innerHTML = `<div class="image-bubble" onclick="zoomImg('${dataUrl}')"><img src="${dataUrl}"><span class="file-size" style="display:block; font-size:10px; opacity:0.7; margin-top:5px;">图片预览</span></div>`
   } else {
     div.innerHTML = `<div class="file-bubble"><span class="file-icon">📄</span><div><span class="file-name">${msg.name}</span><span class="file-size">${msg.status || '文件'}</span></div></div>`
-    if (msg.url) div.onclick = () => window.open(msg.url)
+    const fileUrl = msg.url || msg.data
+    if (fileUrl) {
+      div.onclick = () => {
+        const link = document.createElement('a')
+        link.href = fileUrl
+        link.download = msg.name
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+    }
   }
   chatFlow.appendChild(div)
   chatFlow.scrollTop = chatFlow.scrollHeight
@@ -253,13 +263,10 @@ function handleFileMessage(data) {
       name: data.fileName,
     })
   } else {
-    const link = document.createElement('a')
-    link.href = data.fileData
-    link.download = data.fileName
-    link.click()
     addMessage({
       role: 'ai',
       type: 'file',
+      data: data.fileData,
       name: data.fileName,
       status: '已接收',
     })

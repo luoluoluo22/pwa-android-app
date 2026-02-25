@@ -55,8 +55,9 @@ public class PCFileServer {
                     Title = "灵动传 Pro - 电脑工作台 (v1.1)",
                     Width = 550, Height = 800, Topmost = false,
                     WindowStartupLocation = WindowStartupLocation.CenterScreen,
-                    Background = new SolidColorBrush(Color.FromRgb(25, 25, 30)),
-                    AllowDrop = true
+                    Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)), // 对应 var(--bg-dark) #0f172a
+                    AllowDrop = true,
+                    FontFamily = new FontFamily("Outfit, Noto Sans SC, Microsoft YaHei")
                 };
 
                 var mainGrid = new Grid();
@@ -66,7 +67,12 @@ public class PCFileServer {
 
                 // --- Header ---
                 _currentIp = GetSmartIPAddress();
-                var topBorder = new Border { Background = new SolidColorBrush(Color.FromArgb(60, 0, 0, 0)), Padding = new Thickness(15), BorderThickness = new Thickness(0,0,0,1), BorderBrush = Brushes.DimGray };
+                var topBorder = new Border { 
+                    Background = new SolidColorBrush(Color.FromArgb(230, 15, 23, 42)), // 对应 rgba(15, 23, 42, 0.9)
+                    Padding = new Thickness(15), 
+                    BorderThickness = new Thickness(0,0,0,1), 
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(25, 255, 255, 255)) // 对应 rgba(255, 255, 255, 0.1)
+                };
                 var headerGrid = new Grid();
                 headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -75,18 +81,19 @@ public class PCFileServer {
                 var qrImg = new Image { Width = 80, Height = 80, Source = GetQRImage(_currentIp), Cursor = System.Windows.Input.Cursors.Hand };
 
                 var infoStack = new StackPanel { Margin = new Thickness(15, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-                infoStack.Children.Add(new TextBlock { Text = "📱 扫描二维码或点击下方按钮复制链接", Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(0,0,0,5) });
+                infoStack.Children.Add(new TextBlock { Text = "📱 扫描二维码或点击下方按钮复制链接", Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)), FontSize = 11, Margin = new Thickness(0,0,0,5) }); // var(--text-dim)
                 
                 var btnCopyLink = new Button { 
                     Content = $"🔗 复制配对链接 ({_currentIp})", 
-                    FontSize = 14, 
-                    Foreground = Brushes.Cyan, 
-                    FontWeight = FontWeights.Bold,
-                    Background = new SolidColorBrush(Color.FromArgb(30, 0, 255, 255)),
+                    FontSize = 13, 
+                    Foreground = new SolidColorBrush(Color.FromRgb(99, 102, 241)), // var(--primary)
+                    FontWeight = FontWeights.SemiBold,
+                    Background = new SolidColorBrush(Color.FromArgb(51, 99, 102, 241)), // rgba(99, 102, 241, 0.2)
                     BorderThickness = new Thickness(1), 
-                    BorderBrush = Brushes.Cyan,
-                    Padding = new Thickness(10,5,10,5),
-                    Cursor = System.Windows.Input.Cursors.Hand
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(99, 102, 241)),
+                    Padding = new Thickness(12,6,12,6),
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    Template = CreateFlatButtonTemplate(new CornerRadius(8))
                 };
                 
                 Action copyAction = () => {
@@ -101,8 +108,10 @@ public class PCFileServer {
                 infoStack.Children.Add(btnCopyLink);
 
                 var btnClear = new Button { 
-                    Content = "🗑️ 清空记录", Width = 90, Height = 30, Margin = new Thickness(10,0,0,0),
-                    Background = Brushes.Transparent, Foreground = Brushes.Gray, BorderThickness = new Thickness(1), BorderBrush = Brushes.Gray
+                    Content = "🗑️", Width = 35, Height = 35, Margin = new Thickness(10,0,0,0),
+                    Background = Brushes.Transparent, Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)), 
+                    BorderThickness = new Thickness(0), Cursor = System.Windows.Input.Cursors.Hand,
+                    ToolTip = "清空记录"
                 };
                 btnClear.Click += (s, e) => { 
                     if(MessageBox.Show("确定要清空所有记录吗？", "提示", MessageBoxButton.YesNo) == MessageBoxResult.Yes) {
@@ -130,14 +139,22 @@ public class PCFileServer {
                 Grid.SetRow(_mainScrollViewer, 1); mainGrid.Children.Add(_mainScrollViewer);
 
                 // --- Input ---
-                var inputArea = new Grid { Margin = new Thickness(15), Height = 50 };
-                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                inputArea.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                var inputArea = new Border {
+                    Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)), // var(--chat-bg) #1e293b
+                    Padding = new Thickness(15),
+                    BorderThickness = new Thickness(0,1,0,0),
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(25, 255, 255, 255))
+                };
+                var inputGrid = new Grid { Height = 45 };
+                inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
                 var btnAdd = new Button { 
-                    Content = "➕", Width = 45, Height = 45, FontSize = 22, Margin = new Thickness(0,0,10,0),
-                    Background = new SolidColorBrush(Color.FromRgb(45, 55, 72)), Foreground = Brushes.White, BorderThickness = new Thickness(0)
+                    Content = "➕", Width = 40, Height = 40, FontSize = 20, Margin = new Thickness(0,0,10,0),
+                    Background = Brushes.Transparent, Foreground = new SolidColorBrush(Color.FromRgb(99, 102, 241)), 
+                    BorderThickness = new Thickness(0), Cursor = System.Windows.Input.Cursors.Hand,
+                    Template = CreateFlatButtonTemplate(new CornerRadius(20))
                 };
                 btnAdd.Click += (s, e) => {
                     var dialog = new Microsoft.Win32.OpenFileDialog();
@@ -145,20 +162,26 @@ public class PCFileServer {
                 };
 
                 var txtBox = new TextBox { 
-                    FontSize = 14, VerticalContentAlignment = VerticalAlignment.Center, Padding = new Thickness(12,0,12,0),
-                    Background = new SolidColorBrush(Color.FromRgb(40, 40, 45)), Foreground = Brushes.White, BorderThickness = new Thickness(1), BorderBrush = Brushes.DimGray
+                    FontSize = 14, VerticalContentAlignment = VerticalAlignment.Center, Padding = new Thickness(15,0,15,0),
+                    Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)), Foreground = Brushes.White, 
+                    BorderThickness = new Thickness(0), CaretBrush = Brushes.White,
+                    Template = CreateTextBoxTemplate(new CornerRadius(22))
                 };
                 var btnSend = new Button { 
-                    Content = "发送", Width = 90, Margin = new Thickness(10,0,0,0),
-                    Background = new SolidColorBrush(Color.FromRgb(99, 102, 241)), Foreground = Brushes.White, BorderThickness = new Thickness(0), FontWeight = FontWeights.Bold
+                    Content = "发送", Width = 70, Height = 38, Margin = new Thickness(10,0,0,0),
+                    Background = new SolidColorBrush(Color.FromRgb(99, 102, 241)), Foreground = Brushes.White, 
+                    BorderThickness = new Thickness(0), FontWeight = FontWeights.SemiBold,
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    Template = CreateFlatButtonTemplate(new CornerRadius(19))
                 };
                 Action doSend = () => { if (!string.IsNullOrEmpty(txtBox.Text)) { SendText(txtBox.Text); txtBox.Clear(); } };
                 btnSend.Click += (s, e) => doSend();
                 txtBox.KeyDown += (s, e) => { if (e.Key == System.Windows.Input.Key.Enter) doSend(); };
                 
-                Grid.SetColumn(btnAdd, 0); inputArea.Children.Add(btnAdd);
-                Grid.SetColumn(txtBox, 1); inputArea.Children.Add(txtBox);
-                Grid.SetColumn(btnSend, 2); inputArea.Children.Add(btnSend);
+                Grid.SetColumn(btnAdd, 0); inputGrid.Children.Add(btnAdd);
+                Grid.SetColumn(txtBox, 1); inputGrid.Children.Add(txtBox);
+                Grid.SetColumn(btnSend, 2); inputGrid.Children.Add(btnSend);
+                inputArea.Child = inputGrid;
                 Grid.SetRow(inputArea, 2); mainGrid.Children.Add(inputArea);
 
                 _window.Drop += (s, e) => {
@@ -190,7 +213,7 @@ public class PCFileServer {
                 Time = useTime,
                 IsMe = isMe,
                 Alignment = isMe ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-                Background = isMe ? new SolidColorBrush(Color.FromRgb(99, 102, 241)) : new SolidColorBrush(Color.FromRgb(45, 55, 72)),
+                Background = isMe ? new SolidColorBrush(Color.FromRgb(99, 102, 241)) : new SolidColorBrush(Color.FromRgb(30, 41, 59)), // sent: var(--primary), received: var(--chat-bg)
                 FilePath = filePath
             };
             if (!string.IsNullOrEmpty(filePath)) {
@@ -248,7 +271,7 @@ public class PCFileServer {
     private static DataTemplate CreateMessageTemplate() {
         var template = new DataTemplate(typeof(ChatMessage));
         var grid = new FrameworkElementFactory(typeof(Grid));
-        grid.SetValue(Grid.MarginProperty, new Thickness(0, 5, 0, 5));
+        grid.SetValue(Grid.MarginProperty, new Thickness(0, 8, 0, 8));
         grid.SetBinding(Grid.HorizontalAlignmentProperty, new Binding("Alignment"));
 
         var menu = new ContextMenu();
@@ -261,8 +284,8 @@ public class PCFileServer {
 
         var stack = new FrameworkElementFactory(typeof(StackPanel));
         var border = new FrameworkElementFactory(typeof(Border));
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(10));
-        border.SetValue(Border.PaddingProperty, new Thickness(12, 8, 12, 8));
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(16)); // 对齐手机端圆角
+        border.SetValue(Border.PaddingProperty, new Thickness(14, 10, 14, 10));
         border.SetBinding(Border.BackgroundProperty, new Binding("Background"));
         border.SetValue(Border.MaxWidthProperty, 320.0);
         border.SetValue(Border.CursorProperty, System.Windows.Input.Cursors.Hand);
@@ -317,13 +340,50 @@ public class PCFileServer {
         border.AppendChild(innerStack);
         var timeTxt = new FrameworkElementFactory(typeof(TextBlock));
         timeTxt.SetBinding(TextBlock.TextProperty, new Binding("Time"));
-        timeTxt.SetValue(TextBlock.FontSizeProperty, 9.0);
-        timeTxt.SetValue(TextBlock.ForegroundProperty, Brushes.Gray);
+        timeTxt.SetValue(TextBlock.FontSizeProperty, 10.0);
+        timeTxt.SetValue(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(148, 163, 184))); // var(--text-dim)
         timeTxt.SetBinding(TextBlock.HorizontalAlignmentProperty, new Binding("Alignment"));
-        timeTxt.SetValue(TextBlock.MarginProperty, new Thickness(2, 2, 2, 0));
+        timeTxt.SetValue(TextBlock.MarginProperty, new Thickness(5, 4, 5, 0));
 
         stack.AppendChild(border); stack.AppendChild(timeTxt);
         grid.AppendChild(stack); template.VisualTree = grid;
+        return template;
+    }
+
+    private static ControlTemplate CreateFlatButtonTemplate(CornerRadius cornerRadius) {
+        var template = new ControlTemplate(typeof(Button));
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.Name = "border";
+        border.SetValue(Border.CornerRadiusProperty, cornerRadius);
+        border.SetBinding(Border.BackgroundProperty, new Binding("Background") { RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent) });
+        border.SetBinding(Border.BorderBrushProperty, new Binding("BorderBrush") { RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent) });
+        border.SetBinding(Border.BorderThicknessProperty, new Binding("BorderThickness") { RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent) });
+        
+        var contentPresenter = new FrameworkElementFactory(typeof(ContentPresenter));
+        contentPresenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        contentPresenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+        border.AppendChild(contentPresenter);
+        template.VisualTree = border;
+        
+        var trigger = new Trigger { Property = Button.IsMouseOverProperty, Value = true };
+        trigger.Setters.Add(new Setter(Border.OpacityProperty, 0.8, "border"));
+        template.Triggers.Add(trigger);
+        
+        return template;
+    }
+
+    private static ControlTemplate CreateTextBoxTemplate(CornerRadius cornerRadius) {
+        var template = new ControlTemplate(typeof(TextBox));
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.SetValue(Border.CornerRadiusProperty, cornerRadius);
+        border.SetBinding(Border.BackgroundProperty, new Binding("Background") { RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent) });
+        
+        var scrollViewer = new FrameworkElementFactory(typeof(ScrollViewer));
+        scrollViewer.Name = "PART_ContentHost";
+        scrollViewer.SetValue(ScrollViewer.MarginProperty, new Thickness(0));
+        scrollViewer.SetValue(ScrollViewer.VerticalAlignmentProperty, VerticalAlignment.Center);
+        border.AppendChild(scrollViewer);
+        template.VisualTree = border;
         return template;
     }
 

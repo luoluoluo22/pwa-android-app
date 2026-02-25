@@ -358,8 +358,22 @@ public class PCFileServer {
     }
 
     private static string GetSmartIPAddress() {
-        var host = Dns.GetHostEntry(Dns.GetHostName());
-        return host.AddressList.FirstOrDefault(ip => ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && (ip.ToString().StartsWith("192.168.") || ip.ToString().StartsWith("10.")))?.ToString() ?? "127.0.0.1";
+        try {
+            var host = Dns.GetHostEntry(Dns.GetHostName());
+            // 优先找 192.168 或 10. 开头的局域网地址
+            var preferredIp = host.AddressList.FirstOrDefault(ip => 
+                ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && 
+                (ip.ToString().StartsWith("192.168.") || ip.ToString().StartsWith("10."))
+            );
+            if (preferredIp != null) return preferredIp.ToString();
+
+            // 如果没找到，找任何非回环的 IPv4 地址
+            var anyIp = host.AddressList.FirstOrDefault(ip => 
+                ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && 
+                !IPAddress.IsLoopback(ip)
+            );
+            return anyIp?.ToString() ?? "127.0.0.1";
+        } catch { return "127.0.0.1"; }
     }
 
     private static void StartServer(int port) {

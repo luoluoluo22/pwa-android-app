@@ -205,7 +205,7 @@ if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
             inputArea.scrollIntoView(false);
         }, 300);
     });
-}}
+}
 
 async function poll() {
   try {

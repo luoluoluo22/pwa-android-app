@@ -34,7 +34,7 @@ public class PCFileServer {
     private static ObservableCollection<ChatMessage> _messages = new ObservableCollection<ChatMessage>();
     private static string _currentIp;
     private static string _webAppUrl = "https://luoluoluo22.github.io/pwa-android-app/"; // Web 端托管地址
-    private static string _baseDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "文件传输");
+    private static string _baseDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "传输助手");
     private static string _historyPath = System.IO.Path.Combine(_baseDir, "chat_history.v1.txt");
     private static string _configPath = System.IO.Path.Combine(_baseDir, "config.v1.txt");
     private static string _saveDirectory = _baseDir;
@@ -77,7 +77,7 @@ public class PCFileServer {
                 LoadHistory(); // 启动时加载历史
 
                 _window = new Window {
-                    Title = "文件传输 - 电脑工作台",
+                    Title = "传输助手 - 电脑工作台",
                     Width = 550, Height = 800, Topmost = false,
                     WindowStartupLocation = WindowStartupLocation.CenterScreen,
                     Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)), // 对应 var(--bg-dark) #0f172a
@@ -122,9 +122,6 @@ public class PCFileServer {
                     var zoomStack = new StackPanel { Margin = new Thickness(25) };
                     var bigQr = new Image { Width = 250, Height = 250, Source = GetQRImage(_currentIp), Margin = new Thickness(0,0,0,20) };
                     
-                    if (_cloudMode) {
-                        bigQr.Source = GetQRImage("cloud_" + _cloudChannel); // 云端模式专用二维码
-                    }
                     var hintText = new TextBlock { 
                         Text = "⚠️ 微信扫码暂不支持直接打开\n请使用手机自带相机、支付宝或QQ扫码", 
                         Foreground = Brushes.Gold, FontSize = 13, FontWeight = FontWeights.Bold,
@@ -146,12 +143,13 @@ public class PCFileServer {
                     };
                     btnCopyLink.Click += (s2, e2) => {
                         string fullUrl = $"{_webAppUrl.TrimEnd('/')}/?ip={_currentIp}";
+                        if (_usePushApi) fullUrl += $"&pushKey={_quickerPushKey}";
                         Clipboard.SetText(fullUrl); 
                         MessageBox.Show($"配对链接已复制！\n\n请在手机浏览器中访问：\n{fullUrl}\n\n⚠️ 如果仍然无法连接，请检查：\n1. 电脑和手机是否在同一个 WiFi 下\n2. 电脑防火墙是否开启了 3001 端口的入站许可", "配对指南");
                     };
 
                     var linkText = new TextBlock { 
-                        Text = $"{_webAppUrl.TrimEnd('/')}/?ip={_currentIp}", 
+                        Text = $"{_webAppUrl.TrimEnd('/')}/?ip={_currentIp}" + (_usePushApi ? $"&pushKey={_quickerPushKey}" : ""), 
                         Foreground = Brushes.Gray, FontSize = 10, Margin = new Thickness(0,15,0,0), 
                         TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap 
                     };
@@ -213,7 +211,7 @@ public class PCFileServer {
                 };
                 btnSettings.Click += (s, e) => {
                     var settingWin = new Window {
-                        Title = "极速传书 - 设置", Width = 400, Height = 450,
+                        Title = "传输助手 - 设置", Width = 400, Height = 450,
                         WindowStartupLocation = WindowStartupLocation.CenterScreen,
                         Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
                         Topmost = true

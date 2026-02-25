@@ -1,4 +1,4 @@
-// 极速传书 - IM 核心引擎 (Quicker 增强版)
+// 传输助手 - IM 核心引擎 (Quicker 增强版)
 const urlParams = new URLSearchParams(window.location.search)
 const urlIp = urlParams.get('ip')
 const urlPushKey = urlParams.get('pushKey')

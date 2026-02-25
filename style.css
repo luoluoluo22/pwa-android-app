@@ -72,6 +72,17 @@ h1 {
     margin: 0;
 }
 
+.im-connection-state {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-white);
+}
+
+.im-connection-state.cloud-mode {
+    cursor: pointer;
+    text-decoration: underline dotted;
+}
+
 .scan-entry {
     background: rgba(99, 102, 241, 0.2);
     border: 1px solid var(--primary);

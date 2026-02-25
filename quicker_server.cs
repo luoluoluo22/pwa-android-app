@@ -27,6 +27,9 @@ public class PCFileServer {
     }
     private static ItemsControl _chatList;
     private static ScrollViewer _mainScrollViewer;
+    private static TextBlock _statusText;
+    private static Ellipse _statusDot;
+    private static DateTime _lastPollTime = DateTime.MinValue;
     private static ObservableCollection<ChatMessage> _messages = new ObservableCollection<ChatMessage>();
     private static string _currentIp;
     private static string _webAppUrl = "https://luoluoluo22.github.io/pwa-android-app/"; // Web 端托管地址
@@ -75,7 +78,7 @@ public class PCFileServer {
                 };
                 var headerGrid = new Grid();
                 headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // QR Column
-                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Copy Button Column
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Status Column
                 headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Clear Button Column
 
                 // QR Section (Left)
@@ -84,11 +87,11 @@ public class PCFileServer {
                     Width = 65, Height = 65, 
                     Source = GetQRImage(_currentIp), 
                     Cursor = System.Windows.Input.Cursors.Hand,
-                    ToolTip = "点击放大二维码"
+                    ToolTip = "点击放大二维码并获取配对链接"
                 };
                 qrImg.MouseDown += (s, e) => {
                     var zoomWin = new Window {
-                        Title = "扫码配对", Width = 350, Height = 450,
+                        Title = "扫码配对", Width = 380, Height = 520,
                         WindowStartupLocation = WindowStartupLocation.CenterScreen,
                         Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
                         ResizeMode = ResizeMode.NoResize,
@@ -99,46 +102,69 @@ public class PCFileServer {
                     var hintText = new TextBlock { 
                         Text = "⚠️ 微信扫码暂不支持直接打开\n请使用手机自带相机、支付宝或QQ扫码", 
                         Foreground = Brushes.Gold, FontSize = 13, FontWeight = FontWeights.Bold,
-                        TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap 
+                        TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap,
+                        Margin = new Thickness(0,0,0,20)
                     };
+                    
+                    var btnCopyLink = new Button { 
+                        Content = "扫码失败？复制链接给手机", 
+                        FontSize = 13, 
+                        Foreground = new SolidColorBrush(Color.FromRgb(99, 102, 241)),
+                        FontWeight = FontWeights.SemiBold,
+                        Background = new SolidColorBrush(Color.FromArgb(51, 99, 102, 241)),
+                        BorderThickness = new Thickness(1), 
+                        BorderBrush = new SolidColorBrush(Color.FromRgb(99, 102, 241)),
+                        Padding = new Thickness(15,10,15,10),
+                        Cursor = System.Windows.Input.Cursors.Hand,
+                        Template = CreateFlatButtonTemplate(new CornerRadius(8))
+                    };
+                    btnCopyLink.Click += (s2, e2) => {
+                        string fullUrl = $"{_webAppUrl.TrimEnd('/')}/?ip={_currentIp}";
+                        Clipboard.SetText(fullUrl); 
+                        MessageBox.Show($"配对链接已复制！\n\n请在手机浏览器中访问：\n{fullUrl}", "提示");
+                    };
+
                     var linkText = new TextBlock { 
                         Text = $"{_webAppUrl.TrimEnd('/')}/?ip={_currentIp}", 
                         Foreground = Brushes.Gray, FontSize = 10, Margin = new Thickness(0,15,0,0), 
                         TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap 
                     };
+
                     zoomStack.Children.Add(bigQr);
                     zoomStack.Children.Add(hintText);
+                    zoomStack.Children.Add(btnCopyLink);
                     zoomStack.Children.Add(linkText);
                     zoomWin.Content = zoomStack;
                     zoomWin.ShowDialog();
                 };
                 var qrLabel = new TextBlock { 
-                    Text = "手机扫码", Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)), 
+                    Text = "扫码配对", Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)), 
                     FontSize = 10, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0,5,0,0) 
                 };
                 qrStack.Children.Add(qrImg);
                 qrStack.Children.Add(qrLabel);
+                Grid.SetColumn(qrStack, 0); headerGrid.Children.Add(qrStack);
 
-                // Copy Button Section (Center)
-                var btnCopyLink = new Button { 
-                    Content = "扫码失败？复制链接给手机", 
-                    FontSize = 12, 
-                    Foreground = new SolidColorBrush(Color.FromRgb(99, 102, 241)),
-                    FontWeight = FontWeights.SemiBold,
-                    Background = new SolidColorBrush(Color.FromArgb(51, 99, 102, 241)),
-                    BorderThickness = new Thickness(1), 
-                    BorderBrush = new SolidColorBrush(Color.FromRgb(99, 102, 241)),
-                    Padding = new Thickness(12,8,12,8),
-                    Margin = new Thickness(15, 0, 10, 0),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Cursor = System.Windows.Input.Cursors.Hand,
-                    Template = CreateFlatButtonTemplate(new CornerRadius(8))
+                // Status Section (Center)
+                var statusStack = new StackPanel { 
+                    Orientation = Orientation.Horizontal, 
+                    HorizontalAlignment = HorizontalAlignment.Center, 
+                    VerticalAlignment = VerticalAlignment.Center 
                 };
-                btnCopyLink.Click += (s, e) => {
-                    string fullUrl = $"{_webAppUrl.TrimEnd('/')}/?ip={_currentIp}";
-                    Clipboard.SetText(fullUrl); 
-                    MessageBox.Show($"配对链接已复制！\n\n请在手机浏览器中访问：\n{fullUrl}", "提示");
+                _statusDot = new Ellipse { 
+                    Width = 10, Height = 10, 
+                    Fill = Brushes.Red, 
+                    Margin = new Thickness(0,0,8,0) 
                 };
+                _statusText = new TextBlock { 
+                    Text = "手机未连接", 
+                    Foreground = Brushes.White, 
+                    FontSize = 14, 
+                    FontWeight = FontWeights.SemiBold 
+                };
+                statusStack.Children.Add(_statusDot);
+                statusStack.Children.Add(_statusText);
+                Grid.SetColumn(statusStack, 1); headerGrid.Children.Add(statusStack);
 
                 var btnClear = new Button { 
                     Content = "🗑️", Width = 35, Height = 35, Margin = new Thickness(5,0,0,0),
@@ -152,10 +178,16 @@ public class PCFileServer {
                         if (File.Exists(_historyPath)) File.Delete(_historyPath);
                     }
                 };
-
-                Grid.SetColumn(qrStack, 0); headerGrid.Children.Add(qrStack);
-                Grid.SetColumn(btnCopyLink, 1); headerGrid.Children.Add(btnCopyLink);
                 Grid.SetColumn(btnClear, 2); headerGrid.Children.Add(btnClear);
+                
+                // 定时检查连接状态
+                var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+                timer.Tick += (s, e) => {
+                    bool connected = (DateTime.Now - _lastPollTime).TotalSeconds < 10;
+                    _statusDot.Fill = connected ? new SolidColorBrush(Color.FromRgb(16, 185, 129)) : Brushes.Red;
+                    _statusText.Text = connected ? "手机已连接" : "手机未连接";
+                };
+                timer.Start();
                 topBorder.Child = headerGrid;
                 Grid.SetRow(topBorder, 0); mainGrid.Children.Add(topBorder);
 
@@ -519,6 +551,7 @@ public class PCFileServer {
                     }
                 }
             } else if (req.Url.AbsolutePath == "/poll") {
+                _lastPollTime = DateTime.Now; // 更新最后轮询时间
                 string lastIdStr = req.QueryString["lastId"];
                 long lastId = 0;
                 long.TryParse(lastIdStr, out lastId);

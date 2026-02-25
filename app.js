@@ -93,7 +93,7 @@ function renderMessage(msg) {
 
 // --- 图片查看 ---
 window.zoomImg = (url) => {
-  imageModal.style.display = 'block'
+  imageModal.style.display = 'flex'
   imgFull.src = url
 }
 if (closeBtn) closeBtn.onclick = () => (imageModal.style.display = 'none')

@@ -13,7 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Collections.ObjectModel;
 using System.Windows.Data;
-using System.Windows.Shapes;
+using System.Net.NetworkInformation;
 
 public class PCFileServer {
     private static HttpListener _listener;
@@ -29,7 +29,7 @@ public class PCFileServer {
     private static ItemsControl _chatList;
     private static ScrollViewer _mainScrollViewer;
     private static TextBlock _statusText;
-    private static Ellipse _statusDot;
+    private static System.Windows.Shapes.Ellipse _statusDot;
     private static DateTime _lastPollTime = DateTime.MinValue;
     private static ObservableCollection<ChatMessage> _messages = new ObservableCollection<ChatMessage>();
     private static string _currentIp;
@@ -137,7 +137,7 @@ public class PCFileServer {
                     btnCopyLink.Click += (s2, e2) => {
                         string fullUrl = $"{_webAppUrl.TrimEnd('/')}/?ip={_currentIp}";
                         Clipboard.SetText(fullUrl); 
-                        MessageBox.Show($"配对链接已复制！\n\n请在手机浏览器中访问：\n{fullUrl}", "提示");
+                        MessageBox.Show($"配对链接已复制！\n\n请在手机浏览器中访问：\n{fullUrl}\n\n⚠️ 如果仍然无法连接，请检查：\n1. 电脑和手机是否在同一个 WiFi 下\n2. 电脑防火墙是否开启了 3001 端口的入站许可", "配对指南");
                     };
 
                     var linkText = new TextBlock { 
@@ -167,7 +167,7 @@ public class PCFileServer {
                     HorizontalAlignment = HorizontalAlignment.Center, 
                     VerticalAlignment = VerticalAlignment.Center 
                 };
-                _statusDot = new Ellipse { 
+                _statusDot = new System.Windows.Shapes.Ellipse { 
                     Width = 10, Height = 10, 
                     Fill = Brushes.Red, 
                     Margin = new Thickness(0,0,8,0) 
@@ -202,14 +202,58 @@ public class PCFileServer {
                     ToolTip = "设置保存位置", VerticalAlignment = VerticalAlignment.Center
                 };
                 btnSettings.Click += (s, e) => {
-                    var dialog = new System.Windows.Forms.FolderBrowserDialog();
-                    dialog.Description = "选择文件保存目录";
-                    dialog.SelectedPath = _saveDirectory;
-                    if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
-                        _saveDirectory = dialog.SelectedPath;
-                        try { File.WriteAllText(_configPath, _saveDirectory); } catch { }
-                        MessageBox.Show("保存位置已更新为：\n" + _saveDirectory);
+                    var settingWin = new Window {
+                        Title = "极速传书 - 设置", Width = 400, Height = 450,
+                        WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                        Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
+                        Topmost = true
+                    };
+                    var stack = new StackPanel { Margin = new Thickness(20) };
+                    
+                    stack.Children.Add(new TextBlock { Text = "📁 文件保存目录", Foreground = Brushes.White, Margin = new Thickness(0,0,0,10), FontWeight = FontWeights.Bold });
+                    var pathGrid = new Grid();
+                    pathGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    pathGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    
+                    var txtPath = new TextBox { Text = _saveDirectory, IsReadOnly = true, Margin = new Thickness(0,0,10,0), Padding = new Thickness(5), Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)), Foreground = Brushes.White };
+                    var btnChoose = new Button { Content = "选择", Padding = new Thickness(10,5,10,5), Cursor = System.Windows.Input.Cursors.Hand };
+                    btnChoose.Click += (s2, e2) => {
+                        var dialog = new System.Windows.Forms.FolderBrowserDialog { SelectedPath = _saveDirectory };
+                        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
+                            _saveDirectory = dialog.SelectedPath;
+                            txtPath.Text = _saveDirectory;
+                            try { File.WriteAllText(_configPath, _saveDirectory); } catch { }
+                        }
+                    };
+                    Grid.SetColumn(txtPath, 0); pathGrid.Children.Add(txtPath);
+                    Grid.SetColumn(btnChoose, 1); pathGrid.Children.Add(btnChoose);
+                    stack.Children.Add(pathGrid);
+
+                    stack.Children.Add(new TextBlock { Text = "\n🌐 检测到的局域网 IP (点击可切换)", Foreground = Brushes.White, Margin = new Thickness(0,10,0,10), FontWeight = FontWeights.Bold });
+                    var ips = NetworkInterface.GetAllNetworkInterfaces()
+                        .Where(i => i.OperationalStatus == OperationalStatus.Up)
+                        .SelectMany(i => i.GetIPProperties().UnicastAddresses)
+                        .Where(a => a.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && !IPAddress.IsLoopback(a.Address))
+                        .Select(a => a.Address.ToString());
+
+                    foreach (var ip in ips) {
+                        var btnIp = new Button { 
+                            Content = ip, Margin = new Thickness(0,2,0,2), Padding = new Thickness(10,5,10,5),
+                            Background = (ip == _currentIp) ? new SolidColorBrush(Color.FromRgb(99, 102, 241)) : new SolidColorBrush(Color.FromRgb(30, 41, 59)),
+                            Foreground = Brushes.White, Cursor = System.Windows.Input.Cursors.Hand,
+                            HorizontalContentAlignment = HorizontalAlignment.Left
+                        };
+                        btnIp.Click += (s3, e3) => {
+                            _currentIp = ip;
+                            qrImg.Source = GetQRImage(_currentIp);
+                            settingWin.Close();
+                            MessageBox.Show("IP 已切换为: " + ip + "\n二维码已同步更新。");
+                        };
+                        stack.Children.Add(btnIp);
                     }
+
+                    settingWin.Content = stack;
+                    settingWin.ShowDialog();
                 };
 
                 var actionStack = new StackPanel { Orientation = Orientation.Horizontal };
@@ -349,7 +393,7 @@ public class PCFileServer {
 
     private static void PersistentMessage(string content, bool isMe, string path, string time) {
         try {
-            string dir = Path.GetDirectoryName(_historyPath);
+            string dir = System.IO.Path.GetDirectoryName(_historyPath);
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
             // 格式: Time|IsMe|Path|Content (Base64 处理 Content 防换行干扰)
             string encodedContent = Convert.ToBase64String(Encoding.UTF8.GetBytes(content ?? ""));
@@ -363,14 +407,17 @@ public class PCFileServer {
         try {
             if (File.Exists(_historyPath)) {
                 string[] lines = File.ReadAllLines(_historyPath);
-            foreach (var line in lines) {
-                var parts = line.Split('|');
-                if (parts.Length < 4) continue;
-                string time = parts[0];
-                bool isMe = bool.Parse(parts[1]);
-                string path = parts[2] == "" ? null : parts[2];
-                string content = Encoding.UTF8.GetString(Convert.FromBase64String(parts[3]));
-                LogMessage(content, isMe, path, time);
+                foreach (var line in lines) {
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+                    var parts = line.Split(new[] { '|' }, 4);
+                    if (parts.Length < 4) continue;
+                    string time = parts[0];
+                    bool isMe = false; bool.TryParse(parts[1], out isMe);
+                    string path = string.IsNullOrEmpty(parts[2]) ? null : parts[2];
+                    string content = "";
+                    try { content = Encoding.UTF8.GetString(Convert.FromBase64String(parts[3])); } catch { content = parts[3]; }
+                    LogMessage(content, isMe, path, time);
+                }
             }
         } catch { }
     }
@@ -524,9 +571,9 @@ public class PCFileServer {
         try {
             byte[] bytes = File.ReadAllBytes(path);
             string base64 = Convert.ToBase64String(bytes);
-            string ext = Path.GetExtension(path).ToLower();
+            string ext = System.IO.Path.GetExtension(path).ToLower();
             bool isImg = (ext == ".jpg" || ext == ".png" || ext == ".jpeg");
-            string fileName = Path.GetFileName(path);
+            string fileName = System.IO.Path.GetFileName(path);
             string mime = isImg ? "image/jpeg" : "application/octet-stream";
             long id = Interlocked.Increment(ref _msgIdCounter);
             string json = "{\"hasFile\": true, \"id\": " + id + ", \"type\": \"file\", \"fileName\": \"" + fileName + "\", \"fileData\": \"data:" + mime + ";base64," + base64 + "\"}";
@@ -540,20 +587,37 @@ public class PCFileServer {
 
     private static string GetSmartIPAddress() {
         try {
-            var host = Dns.GetHostEntry(Dns.GetHostName());
-            // 优先找 192.168 或 10. 开头的局域网地址
-            var preferredIp = host.AddressList.FirstOrDefault(ip => 
-                ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && 
-                (ip.ToString().StartsWith("192.168.") || ip.ToString().StartsWith("10."))
-            );
-            if (preferredIp != null) return preferredIp.ToString();
+            // 改进后的 IP 识别：跳过虚拟网卡（VirtualBox, VMware, WSL, etc.）
+            var interfaces = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(i => i.OperationalStatus == OperationalStatus.Up && 
+                            i.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
+                            !i.Description.ToLower().Contains("virtual") &&
+                            !i.Description.ToLower().Contains("pseudo") &&
+                            !i.Description.ToLower().Contains("wsl") &&
+                            !i.Description.ToLower().Contains("vmware") &&
+                            !i.Description.ToLower().Contains("vbox") &&
+                            !i.Name.ToLower().Contains("virtual"));
 
-            // 如果没找到，找任何非回环的 IPv4 地址
-            var anyIp = host.AddressList.FirstOrDefault(ip => 
+            foreach (var ni in interfaces) {
+                var props = ni.GetIPProperties();
+                var ipv4 = props.UnicastAddresses
+                    .FirstOrDefault(a => a.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+                
+                if (ipv4 != null) {
+                    string ip = ipv4.Address.ToString();
+                    // 优先选择 192.168.x.x 或 10.x.x.x 等内网地址
+                    if (ip.StartsWith("192.168.") || ip.StartsWith("10.") || ip.StartsWith("172.16.")) {
+                        return ip;
+                    }
+                }
+            }
+
+            // 如果没找到物理网卡，则回退到原来的逻辑
+            var host = Dns.GetHostEntry(Dns.GetHostName());
+            return host.AddressList.FirstOrDefault(ip => 
                 ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && 
                 !IPAddress.IsLoopback(ip)
-            );
-            return anyIp?.ToString() ?? "127.0.0.1";
+            )?.ToString() ?? "127.0.0.1";
         } catch { return "127.0.0.1"; }
     }
 

@@ -221,7 +221,10 @@ async function poll() {
     })
     if (res.ok) {
       statusDot.style.background = '#10b981'
-      connectionState.textContent = '电脑助手在线'
+      connectionState.textContent = `已连接: ${PC_IP}`
+      window.failedPolls = 0
+      const tip = document.getElementById('ip-fix-tip')
+      if (tip) tip.remove()
       const data = await res.json()
       if (data.nextId !== undefined) {
         lastMsgId = data.nextId
@@ -259,10 +262,37 @@ async function poll() {
     }
   } catch (e) {
     statusDot.style.background = '#ef4444'
-    connectionState.textContent = '电脑端离线'
+    connectionState.textContent = `离线: ${PC_IP}`
+    // 如果长时间连接不上，显示修改 IP 的建议
+    if (!window.failedPolls) window.failedPolls = 0
+    window.failedPolls++
+    if (window.failedPolls > 3 && !document.getElementById('ip-fix-tip')) {
+      const tip = document.createElement('div')
+      tip.id = 'ip-fix-tip'
+      tip.style.cssText =
+        'font-size: 10px; color: #94a3b8; text-align: center; margin-top: 5px; cursor: pointer;'
+      tip.innerHTML = '连接失败？点击尝试手动输入 IP'
+      tip.onclick = () => {
+        const newIp = prompt('请输入电脑端显示的 IP 地址:', PC_IP)
+        if (newIp) {
+          localStorage.setItem('pc_server_ip', newIp)
+          location.href = location.origin + location.pathname + '?ip=' + newIp
+        }
+      }
+      connectionState.parentNode.appendChild(tip)
+
+      const refreshBtn = document.createElement('div')
+      refreshBtn.style.cssText =
+        'font-size: 10px; color: #6366f1; text-align: center; margin-top: 5px; cursor: pointer; text-decoration: underline;'
+      refreshBtn.textContent = '重试连接'
+      refreshBtn.onclick = () => location.reload()
+      connectionState.parentNode.appendChild(refreshBtn)
+    }
+    setTimeout(poll, 3000) // 发生错误时，3秒后重试
   }
 }
-setInterval(poll, 3000)
+// 启动首次轮询
+poll()
 
 textInput.addEventListener(
   'input',

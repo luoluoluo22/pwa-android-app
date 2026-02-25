@@ -1,13 +1,15 @@
 // 灵动传 Pro - IM 核心引擎 (v1.1 优化版)
 const urlParams = new URLSearchParams(window.location.search)
-const urlIp = urlParams.get('ip');
-let PC_IP = urlIp || localStorage.getItem('pc_server_ip');
-const hasNoIp = !PC_IP;
+const urlIp = urlParams.get('ip')
+let PC_IP = urlIp || localStorage.getItem('pc_server_ip')
+const hasNoIp = !PC_IP
 
 // 微信环境检测
-const isWechat = /MicroMessenger/i.test(navigator.userAgent);
+const isWechat = /MicroMessenger/i.test(navigator.userAgent)
 if (isWechat) {
-    alert("检测到您正在使用微信浏览器。由于微信限制，请点击右上角 [...] 并选择 [在浏览器打开]，否则可能无法正常传输文件。");
+  alert(
+    '检测到您正在使用微信浏览器。由于微信限制，请点击右上角 [...] 并选择 [在浏览器打开]，否则可能无法正常传输文件。',
+  )
 }
 
 if (hasNoIp) {
@@ -151,70 +153,82 @@ function applyNewIp(ip) {
 }
 
 // --- 核心交互 ---
+let lastMsgId = -1
+
 window.copyText = (text) => {
-    if (!text) return;
-    
-    // 优先使用现代 Clipboard API
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-            showToast("已复制到剪贴板");
-        }).catch(err => {
-            fallbackCopyText(text);
-        });
-    } else {
-        fallbackCopyText(text);
-    }
-};
+  if (!text) return
+
+  // 优先使用现代 Clipboard API
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        showToast('已复制到剪贴板')
+      })
+      .catch((err) => {
+        fallbackCopyText(text)
+      })
+  } else {
+    fallbackCopyText(text)
+  }
+}
 
 function fallbackCopyText(text) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.left = "-9999px";
-    textArea.style.top = "0";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-        document.execCommand('copy');
-        showToast("已复制到剪贴板");
-    } catch (err) {
-        alert('拷贝失败，请手动长按复制');
-    }
-    document.body.removeChild(textArea);
+  const textArea = document.createElement('textarea')
+  textArea.value = text
+  textArea.style.position = 'fixed'
+  textArea.style.left = '-9999px'
+  textArea.style.top = '0'
+  document.body.appendChild(textArea)
+  textArea.focus()
+  textArea.select()
+  try {
+    document.execCommand('copy')
+    showToast('已复制到剪贴板')
+  } catch (err) {
+    alert('拷贝失败，请手动长按复制')
+  }
+  document.body.removeChild(textArea)
 }
 
 function showToast(msg) {
-    const toast = document.createElement('div');
-    toast.className = 'toast-msg';
-    toast.textContent = msg;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.classList.add('show'), 10);
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => document.body.removeChild(toast), 300);
-    }, 2000);
+  const toast = document.createElement('div')
+  toast.className = 'toast-msg'
+  toast.textContent = msg
+  document.body.appendChild(toast)
+  setTimeout(() => toast.classList.add('show'), 10)
+  setTimeout(() => {
+    toast.classList.remove('show')
+    setTimeout(() => document.body.removeChild(toast), 300)
+  }, 2000)
 }
 
 // 解决 iOS 键盘弹出遮挡输入框问题
 if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-    const inputArea = document.querySelector('.im-input-area');
-    document.getElementById('textInput').addEventListener('focus', () => {
-        setTimeout(() => {
-            window.scrollTo(0, document.body.scrollHeight);
-            inputArea.scrollIntoView(false);
-        }, 300);
-    });
+  const inputArea = document.querySelector('.im-input-area')
+  document.getElementById('textInput').addEventListener('focus', () => {
+    setTimeout(() => {
+      window.scrollTo(0, document.body.scrollHeight)
+      inputArea.scrollIntoView(false)
+    }, 300)
+  })
 }
 
 async function poll() {
   try {
-    const res = await fetch(`${PC_SERVER_URL}/poll`, { mode: 'cors' })
+    const res = await fetch(`${PC_SERVER_URL}/poll?lastId=${lastMsgId}`, {
+      mode: 'cors',
+    })
     if (res.ok) {
       statusDot.style.background = '#10b981'
       connectionState.textContent = '电脑助手在线'
       const data = await res.json()
+      if (data.nextId !== undefined) {
+        lastMsgId = data.nextId
+      }
       if (data.hasFile) {
+        if (data.id !== undefined) lastMsgId = data.id // 更新最后接收的消息 ID
+
         if (data.type === 'text') {
           addMessage({ role: 'ai', type: 'text', content: data.content })
         } else {
@@ -239,6 +253,8 @@ async function poll() {
             })
           }
         }
+        // 如果收到了消息，立即再次轮询，确保获取缓冲区中剩余的消息
+        setTimeout(poll, 100)
       }
     }
   } catch (e) {

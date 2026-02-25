@@ -17,8 +17,14 @@ using System.Windows.Data;
 public class PCFileServer {
     private static HttpListener _listener;
     private static CancellationTokenSource _cts;
-    private static List<string> _outgoingQueue = new List<string>();
+    private static List<BroadcastMessage> _broadcastBuffer = new List<BroadcastMessage>();
+    private static long _msgIdCounter = 0;
     private static Window _window;
+
+    public class BroadcastMessage {
+        public long Id { get; set; }
+        public string Json { get; set; }
+    }
     private static ItemsControl _chatList;
     private static ScrollViewer _mainScrollViewer;
     private static ObservableCollection<ChatMessage> _messages = new ObservableCollection<ChatMessage>();
@@ -338,8 +344,12 @@ public class PCFileServer {
 
     private static void SendText(string text) {
         string escaped = text.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
-        string json = "{\"hasFile\": true, \"type\": \"text\", \"content\": \"" + escaped + "\"}";
-        lock (_outgoingQueue) { _outgoingQueue.Add(json); }
+        long id = Interlocked.Increment(ref _msgIdCounter);
+        string json = "{\"hasFile\": true, \"id\": " + id + ", \"type\": \"text\", \"content\": \"" + escaped + "\"}";
+        lock (_broadcastBuffer) { 
+            _broadcastBuffer.Add(new BroadcastMessage { Id = id, Json = json }); 
+            if (_broadcastBuffer.Count > 100) _broadcastBuffer.RemoveAt(0); // 保持缓冲区在合理大小
+        }
         LogMessage(text, true);
     }
 
@@ -351,8 +361,12 @@ public class PCFileServer {
             bool isImg = (ext == ".jpg" || ext == ".png" || ext == ".jpeg");
             string fileName = Path.GetFileName(path);
             string mime = isImg ? "image/jpeg" : "application/octet-stream";
-            string json = "{\"hasFile\": true, \"type\": \"file\", \"fileName\": \"" + fileName + "\", \"fileData\": \"data:" + mime + ";base64," + base64 + "\"}";
-            lock (_outgoingQueue) { _outgoingQueue.Add(json); }
+            long id = Interlocked.Increment(ref _msgIdCounter);
+            string json = "{\"hasFile\": true, \"id\": " + id + ", \"type\": \"file\", \"fileName\": \"" + fileName + "\", \"fileData\": \"data:" + mime + ";base64," + base64 + "\"}";
+            lock (_broadcastBuffer) { 
+                _broadcastBuffer.Add(new BroadcastMessage { Id = id, Json = json }); 
+                if (_broadcastBuffer.Count > 100) _broadcastBuffer.RemoveAt(0);
+            }
             LogMessage(isImg ? $"[图片] {fileName}" : $"[文件] {fileName}", true, path);
         } catch (Exception ex) { MessageBox.Show("失败: " + ex.Message); }
     }
@@ -412,8 +426,22 @@ public class PCFileServer {
                     }
                 }
             } else if (req.Url.AbsolutePath == "/poll") {
+                string lastIdStr = req.QueryString["lastId"];
+                long lastId = 0;
+                long.TryParse(lastIdStr, out lastId);
+                
                 string json = "{\"hasFile\": false}";
-                lock (_outgoingQueue) { if (_outgoingQueue.Count > 0) { json = _outgoingQueue[0]; _outgoingQueue.RemoveAt(0); } }
+                lock (_broadcastBuffer) {
+                    if (lastIdStr == "-1") {
+                        // 首次连接，告知当前最大 ID，不获取历史消息
+                        json = "{\"hasFile\": false, \"nextId\": " + _msgIdCounter + "}";
+                    } else {
+                        var newMsgs = _broadcastBuffer.Where(m => m.Id > lastId).ToList();
+                        if (newMsgs.Count > 0) {
+                            json = newMsgs[0].Json;
+                        }
+                    }
+                }
                 byte[] buffer = Encoding.UTF8.GetBytes(json); res.OutputStream.Write(buffer, 0, buffer.Length);
             }
         } catch { } finally { try { res.Close(); } catch { } }

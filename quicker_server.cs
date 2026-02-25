@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Collections.ObjectModel;
 using System.Windows.Data;
+using System.Windows.Shapes;
 
 public class PCFileServer {
     private static HttpListener _listener;
@@ -33,7 +34,7 @@ public class PCFileServer {
     private static ObservableCollection<ChatMessage> _messages = new ObservableCollection<ChatMessage>();
     private static string _currentIp;
     private static string _webAppUrl = "https://luoluoluo22.github.io/pwa-android-app/"; // Web 端托管地址
-    private static string _historyPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "灵动传Pro", "chat_history.v1.txt");
+    private static string _historyPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "极速传书", "chat_history.v1.txt");
 
     public class ChatMessage {
         public string Content { get; set; }
@@ -55,7 +56,7 @@ public class PCFileServer {
                 LoadHistory(); // 启动时加载历史
 
                 _window = new Window {
-                    Title = "灵动传 Pro - 电脑工作台 (v1.1)",
+                    Title = "极速传书 - 电脑工作台",
                     Width = 550, Height = 800, Topmost = false,
                     WindowStartupLocation = WindowStartupLocation.CenterScreen,
                     Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)), // 对应 var(--bg-dark) #0f172a
